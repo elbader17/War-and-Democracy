@@ -40,7 +40,7 @@ public class ModServerEconomyGameTests {
     private static Fixture fixture(int chunks, long balance) {
         NationManager nations = new NationManager();
         ClaimIndex claims = new ClaimIndex();
-        Nation nation = nations.create(UUID.randomUUID(), "Nacion", UUID.randomUUID(),
+        Nation nation = nations.create(UUID.randomUUID(), "Nation", UUID.randomUUID(),
                 0x55FFFF, 0L);
         nation.economy().setBalance(balance);
         for (int i = 0; i < chunks; i++) {

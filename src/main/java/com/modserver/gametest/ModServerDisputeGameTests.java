@@ -57,7 +57,7 @@ public class ModServerDisputeGameTests {
 
         Nation attacker = nations.create(UUID.randomUUID(), "Atacante", UUID.randomUUID(),
                 0xFF5555, 0L);
-        Nation defender = nations.create(UUID.randomUUID(), "Defensor", UUID.randomUUID(),
+        Nation defender = nations.create(UUID.randomUUID(), "Defender", UUID.randomUUID(),
                 0x55FFFF, 0L);
 
         claims.claim(new Claim(WORLD, 0, 0, defender.id(), 0L));

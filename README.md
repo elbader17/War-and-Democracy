@@ -150,7 +150,7 @@ runner returns a non-zero exit code so an agent can decide on its own.
 | `/modserver spawncog` | server | places the mod block in front of the player (useful for testing) |
 | `/modserver screenshot` | client | saves the game framebuffer in `<gameDir>/screenshots/modserver.png` |
 
-### Nation commands (`/nacion`)
+### Nation commands (`/nacion`, alias `/nation` and `/nac`)
 
 | Command | What it does |
 |---|---|

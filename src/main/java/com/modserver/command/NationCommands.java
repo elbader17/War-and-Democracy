@@ -37,8 +37,22 @@ public final class NationCommands {
     private NationCommands() {
     }
 
+    /**
+     * Registers the nation commands under their three names.
+     *
+     * <p>{@code /nacion} is the historic name and the one used in the docs; {@code /nation}
+     * and {@code /nac} are the English aliases.</p>
+     */
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("nacion")
+        dispatcher.register(rootCommand("nacion"));
+        dispatcher.register(rootCommand("nation"));
+        dispatcher.register(rootCommand("nac"));
+    }
+
+    /** Builds the whole command tree under the given root name. */
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack>
+    rootCommand(String name) {
+        return Commands.literal(name)
                 .requires(source -> source.hasPermission(0))
                 .then(Commands.literal("crear")
                         .then(Commands.argument("nombre", StringArgumentType.word())
@@ -117,7 +131,7 @@ public final class NationCommands {
                                         .executes(ctx -> attack(ctx,
                                                 IntegerArgumentType.getInteger(ctx, "x"),
                                                 IntegerArgumentType.getInteger(ctx, "z"))))))
-                .then(adminCommand()));
+                .then(adminCommand());
     }
 
     /** Admin subcommand: {@code /nacion admin resolve <id> keep|transfer}. */
