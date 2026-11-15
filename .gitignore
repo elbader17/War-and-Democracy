@@ -1,0 +1,41 @@
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# gradle
+build
+.gradle
+
+# other
+eclipse
+run
+runs
+run-data
+
+repo
+
+# tooling local
+tools/logs
+tools/bot/node_modules
+# python
+__pycache__/
+*.pyc
+run-gametest
+
+# runtime data of the dev environment
+run-*/
+*.pid
+
+# datagen cache
+src/generated/resources/.cache/

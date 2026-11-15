@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "modserver:block/cog" }
+  }
+}

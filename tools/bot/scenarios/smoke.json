@@ -1,0 +1,5 @@
+[
+  { "command": "/modserver info", "expect": ["Minecraft 1.21.1", "NeoForge 21.1.266", "modserver"], "timeout": 20000 },
+  { "command": "/modserver selftest", "expect": ["MODSERVER_SELFTEST RESULT", "PASS"], "timeout": 20000 },
+  { "command": "/modserver spawncog", "expect": ["spawncog"], "timeout": 20000 }
+]

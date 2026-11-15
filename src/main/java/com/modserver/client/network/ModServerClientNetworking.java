@@ -1,0 +1,39 @@
+package com.modserver.client.network;
+
+import com.modserver.client.map.NationMapData;
+import com.modserver.client.map.NationMapScreen;
+import com.modserver.network.NationMapPayload;
+import net.minecraft.client.Minecraft;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+
+/**
+ * Management of the <b>client</b> side of the mod packets.
+ *
+ * <p>This class can never be loaded on the dedicated server: it holds references to
+ * Minecraft client classes ({@link Minecraft}, {@link NationMapScreen}). The JVM
+ * verifier loads {@code Screen} as soon as it has to check whether a screen is
+ * assignable to {@code Screen} (for example when invoking
+ * {@code Minecraft.setScreen(Screen)}), and NeoForge aborts the server startup if a
+ * client class is loaded there.</p>
+ *
+ * <p>That is why the common code ({@code com.modserver.network.ModServerNetworking}) only
+ * calls it from handlers that run exclusively on the client, and the
+ * {@link OnlyIn} annotation turns any configuration error into a clear failure.</p>
+ */
+@OnlyIn(Dist.CLIENT)
+public final class ModServerClientNetworking {
+
+    private ModServerClientNetworking() {
+    }
+
+    /** Caches the map data sent by the server. */
+    public static void handleMapData(NationMapPayload payload) {
+        NationMapData.accept(payload);
+    }
+
+    /** Opens the nation map screen. */
+    public static void openMap() {
+        Minecraft.getInstance().setScreen(new NationMapScreen());
+    }
+}

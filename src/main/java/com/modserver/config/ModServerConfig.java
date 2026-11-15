@@ -1,0 +1,186 @@
+package com.modserver.config;
+
+import net.neoforged.neoforge.common.ModConfigSpec;
+
+/**
+ * Server configuration (world/modserver-server.toml).
+ */
+public final class ModServerConfig {
+
+    public static final ModConfigSpec SPEC;
+    public static final ModConfigSpec.IntValue MAX_CHUNKS_PER_NATION;
+    public static final ModConfigSpec.IntValue MAX_NATION_MEMBERS;
+    public static final ModConfigSpec.IntValue DISPUTE_WINDOW_MINUTES;
+    public static final ModConfigSpec.IntValue DISPUTE_COOLDOWN_MINUTES;
+    public static final ModConfigSpec.IntValue DISPUTE_CHUNK_COOLDOWN_MINUTES;
+    public static final ModConfigSpec.IntValue WAR_DISPUTE_WINDOW_MINUTES;
+    public static final ModConfigSpec.BooleanValue WAR_IGNORES_DISPUTE_COOLDOWN;
+    public static final ModConfigSpec.IntValue MIN_CLAIM_DISTANCE;
+    public static final ModConfigSpec.IntValue MAP_SYNC_RADIUS_CHUNKS;
+    public static final ModConfigSpec.IntValue MAP_MAX_MARKERS;
+    public static final ModConfigSpec.BooleanValue CLAIMS_ENABLED;
+    public static final ModConfigSpec.BooleanValue CROSS_DIMENSION_DISABLED;
+    public static final ModConfigSpec.BooleanValue ECONOMY_ENABLED;
+    public static final ModConfigSpec.IntValue STARTING_BALANCE;
+    public static final ModConfigSpec.IntValue CLAIM_INCOME;
+    public static final ModConfigSpec.IntValue CLAIM_UPKEEP;
+    public static final ModConfigSpec.IntValue DEFENSE_BASE;
+    public static final ModConfigSpec.IntValue DEFENSE_PER_CHUNK;
+    public static final ModConfigSpec.IntValue DEFENSE_SCALE;
+    public static final ModConfigSpec.IntValue ATTACK_COST;
+    public static final ModConfigSpec.IntValue WAR_ATTACK_DISCOUNT;
+    public static final ModConfigSpec.IntValue FARM_COST;
+    public static final ModConfigSpec.IntValue GARRISON_COST;
+    public static final ModConfigSpec.IntValue TREASURY_COST;
+    public static final ModConfigSpec.IntValue FARM_UPKEEP;
+    public static final ModConfigSpec.IntValue GARRISON_UPKEEP;
+    public static final ModConfigSpec.IntValue TREASURY_UPKEEP;
+    public static final ModConfigSpec.IntValue ECONOMY_MAX_LEVEL;
+
+    static {
+        ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
+
+        builder.comment("Nations mod settings").push("nations");
+
+        builder.comment("Fixed game rule: each player can found only one nation",
+                "(not configurable: the domain guarantees it)");
+
+        MAX_CHUNKS_PER_NATION = builder
+                .comment("Maximum number of chunks (16x16) a nation can claim")
+                .defineInRange("maxChunksPerNation", 100, 1, 100000);
+
+        MAX_NATION_MEMBERS = builder
+                .comment("Maximum number of members per nation")
+                .defineInRange("maxNationMembers", 20, 1, 1000);
+
+        DISPUTE_WINDOW_MINUTES = builder
+                .comment("Minutes the defending nation has to answer a dispute",
+                        "If it expires without a defense, the chunk changes owner")
+                .defineInRange("disputeWindowMinutes", 10, 1, 1440);
+
+        DISPUTE_COOLDOWN_MINUTES = builder
+                .comment("Minutes a nation must wait before opening a dispute again",
+                        "Anti-abuse: 0 = no cooldown")
+                .defineInRange("disputeCooldownMinutes", 30, 0, 10080);
+
+        DISPUTE_CHUNK_COOLDOWN_MINUTES = builder
+                .comment("Minutes a chunk must wait before it can be disputed again",
+                        "Anti-abuse: 0 = no cooldown")
+                .defineInRange("disputeChunkCooldownMinutes", 120, 0, 10080);
+
+        WAR_DISPUTE_WINDOW_MINUTES = builder
+                .comment("Defense window minutes when there is a WAR between the two nations",
+                        "In war the window is shorter: that is the aggressor advantage")
+                .defineInRange("warDisputeWindowMinutes", 5, 1, 1440);
+
+        WAR_IGNORES_DISPUTE_COOLDOWN = builder
+                .comment("In war, the challenging nation does not have to wait for the dispute cooldown",
+                        "Anti-abuse: the per chunk cooldown still applies")
+                .define("warIgnoresDisputeCooldown", true);
+
+        MIN_CLAIM_DISTANCE = builder
+                .comment("Chunks of minimum separation between the current claim and the capital",
+                        "0 = no restriction")
+                .defineInRange("minClaimDistance", 0, 0, 64);
+
+        builder.pop();
+
+        builder.comment("Nations economy settings").push("economy");
+
+        ECONOMY_ENABLED = builder
+                .comment("Enables the economy: income, maintenance, defense and investments")
+                .define("economyEnabled", true);
+
+        STARTING_BALANCE = builder
+                .comment("Coins a nation starts with")
+                .defineInRange("startingBalance", 100, 0, 1000000);
+
+        CLAIM_INCOME = builder
+                .comment("Coins generated by each claimed chunk per day")
+                .defineInRange("claimDailyIncome", 2, 0, 1000);
+
+        CLAIM_UPKEEP = builder
+                .comment("Coins it costs to maintain each chunk per day")
+                .defineInRange("claimDailyUpkeep", 1, 0, 1000);
+
+        DEFENSE_BASE = builder
+                .comment("Fixed daily cost of the defense of a nation")
+                .defineInRange("defenseBaseCost", 20, 0, 100000);
+
+        DEFENSE_PER_CHUNK = builder
+                .comment("Daily cost of defending each chunk")
+                .defineInRange("defensePerChunkCost", 2, 0, 10000);
+
+        DEFENSE_SCALE = builder
+                .comment("Extra cost of defending a large territory (quadratic term)",
+                        "The total cost is: base + perChunk * chunks + scale * chunks^2 / 100")
+                .defineInRange("defenseScaleCost", 5, 0, 100000);
+
+        ATTACK_COST = builder
+                .comment("Coins it costs to open a dispute (deposit: not refunded)")
+                .defineInRange("attackCost", 50, 0, 100000);
+
+        WAR_ATTACK_DISCOUNT = builder
+                .comment("Discount on the attack cost during a war (percentage)")
+                .defineInRange("warAttackDiscountPercent", 50, 0, 100);
+
+        FARM_COST = builder
+                .comment("Cost of buying each farm level (income x1.25)")
+                .defineInRange("farmCost", 100, 0, 1000000);
+
+        GARRISON_COST = builder
+                .comment("Cost of buying each garrison level (automatic defenses)")
+                .defineInRange("garrisonCost", 150, 0, 1000000);
+
+        TREASURY_COST = builder
+                .comment("Cost of buying each treasury level (daily interest)")
+                .defineInRange("treasuryCost", 200, 0, 1000000);
+
+        FARM_UPKEEP = builder
+                .comment("Daily maintenance per farm level")
+                .defineInRange("farmUpkeep", 10, 0, 100000);
+
+        GARRISON_UPKEEP = builder
+                .comment("Daily maintenance per garrison level")
+                .defineInRange("garrisonUpkeep", 15, 0, 100000);
+
+        TREASURY_UPKEEP = builder
+                .comment("Daily maintenance per treasury level")
+                .defineInRange("treasuryUpkeep", 20, 0, 100000);
+
+        ECONOMY_MAX_LEVEL = builder
+                .comment("Maximum level of each investment")
+                .defineInRange("economyMaxLevel", 3, 1, 10);
+
+        builder.pop();
+
+        builder.comment("Map and minimap settings").push("map");
+
+        MAP_SYNC_RADIUS_CHUNKS = builder
+                .comment("Radius in chunks the server sends to the client to draw the map")
+                .defineInRange("mapSyncRadiusChunks", 16, 1, 256);
+
+        MAP_MAX_MARKERS = builder
+                .comment("Maximum number of markers sent to the client minimap")
+                .defineInRange("mapMaxMarkers", 300, 1, 10000);
+
+        builder.pop();
+
+        builder.comment("Claiming settings").push("claims");
+
+        CLAIMS_ENABLED = builder
+                .comment("Allows claiming chunks. If disabled, the nations still exist")
+                .define("claimsEnabled", true);
+
+        CROSS_DIMENSION_DISABLED = builder
+                .comment("Restricts the claims to the overworld")
+                .define("overworldOnly", true);
+
+        builder.pop();
+
+        SPEC = builder.build();
+    }
+
+    private ModServerConfig() {
+    }
+}
