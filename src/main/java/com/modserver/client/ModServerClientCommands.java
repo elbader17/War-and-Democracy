@@ -1,5 +1,7 @@
 package com.modserver.client;
 
+import com.modserver.client.map.JourneyMapProvider;
+import com.modserver.client.map.JourneyMapScreenOpener;
 import com.modserver.client.map.NationMapScreen;
 import com.modserver.client.map.XaeroMapProvider;
 import com.modserver.command.ModServerCommands;
@@ -51,9 +53,12 @@ public final class ModServerClientCommands {
     public static final String AUTO_OPEN_MAP_PROPERTY = "modserver.autoOpenMap";
     public static final String AUTO_OPEN_MAP_DELAY_PROPERTY = "modserver.autoOpenMapDelay";
     public static final String AUTO_QUIT_PROPERTY = "modserver.autoQuit";
+    public static final String AUTO_COMMANDS_PROPERTY = "modserver.autoCommands";
 
     private static int pendingScreenshotTicks = -1;
     private static int pendingOpenMapTicks = -1;
+    private static String[] pendingCommands = new String[0];
+    private static int pendingCommandTicks = -1;
     private static boolean autoJoinPending;
     private static boolean autoJoinDone;
 
@@ -74,15 +79,36 @@ public final class ModServerClientCommands {
         if (Boolean.getBoolean(AUTO_OPEN_MAP_PROPERTY)) {
             pendingOpenMapTicks = Integer.getInteger(AUTO_OPEN_MAP_DELAY_PROPERTY, 40);
         }
+        String commands = System.getProperty(AUTO_COMMANDS_PROPERTY);
+        if (commands != null && !commands.isBlank()) {
+            pendingCommands = commands.split(";");
+            pendingCommandTicks = 20;
+        }
     }
 
     @SubscribeEvent
     public static void onTick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
 
+        // M opens the nation map of the mod (the server sends the data and asks
+        // the client to open the screen).
+        if (ModServerKeyBindings.pollMapKey()) {
+            // Xaero may open its own full screen map with the same key: close it
+            // so the map of the mod is the visible one.
+            ModServerKeyBindings.closeForeignMaps(mc);
+        }
+
         // Retry publishing markers to third party minimaps: Xaero may initialize
         // after the map data has arrived.
         XaeroMapProvider.retry();
+
+        // The same for the territories drawn in JourneyMap.
+        JourneyMapProvider.retry();
+
+        // Automatic opening of the full screen map of JourneyMap (captures).
+        if (Boolean.getBoolean(JourneyMapScreenOpener.AUTO_OPEN_PROPERTY) && mc.player != null) {
+            JourneyMapScreenOpener.tick(mc);
+        }
 
         // Automatic connection to the development server (vanilla quickPlay never
         // runs in the NeoForge development environment).
@@ -93,6 +119,14 @@ public final class ModServerClientCommands {
                 joinServer(mc, System.getProperty(AUTO_JOIN_PROPERTY));
             } else if (mc.getOverlay() == null) {
                 autoJoinPending = true;
+            }
+        }
+
+        if (pendingCommandTicks > 0) {
+            pendingCommandTicks--;
+            if (pendingCommandTicks == 0) {
+                pendingCommandTicks = -1;
+                runPendingCommands(mc);
             }
         }
 
@@ -114,6 +148,25 @@ public final class ModServerClientCommands {
                 pendingScreenshotTicks = -1;
                 takeScreenshot(null);
             }
+        }
+    }
+
+    /** Runs the commands of the {@code modserver.autoCommands} property, one every 20 ticks. */
+    private static void runPendingCommands(Minecraft mc) {
+        String[] commands = pendingCommands;
+        pendingCommands = new String[0];
+        for (String command : commands) {
+            String trimmed = command.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            if (trimmed.startsWith("/")) {
+                trimmed = trimmed.substring(1);
+            }
+            if (mc.getConnection() != null) {
+                mc.getConnection().sendCommand(trimmed);
+            }
+            ModServerCommands.LOGGER.info("{} AUTOCOMMAND {}", ModServerCommands.SELFTEST_MARKER, trimmed);
         }
     }
 

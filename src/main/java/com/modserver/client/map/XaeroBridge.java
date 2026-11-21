@@ -152,16 +152,14 @@ final class XaeroBridge {
         // offered by the Xaero third party API.
         waypoints.setEnabledStateGetter(() -> true);
 
-        int limit = Math.min(MAX_MARKERS, pendingClaims.length);
-        for (int i = 0; i < limit; i++) {
-            NationMapPayload.ClaimView claim = pendingClaims[i];
-            if (claim.nationIndex() < 0 || claim.nationIndex() >= pendingNations.length) {
-                continue;
-            }
-            NationMapPayload.NationView nation = pendingNations[claim.nationIndex()];
-            int blockX = claim.chunkX() * 16 + 8;
-            int blockZ = claim.chunkZ() * 16 + 8;
-            String id = claim.chunkX() + ":" + claim.chunkZ();
+        // Only one marker per nation (its capital): the territory itself is drawn
+        // as an area in the map of the mod, not as a cloud of points in the minimap.
+        int publishedCount = 0;
+        for (int i = 0; i < pendingNations.length && publishedCount < MAX_MARKERS; i++) {
+            NationMapPayload.NationView nation = pendingNations[i];
+            int blockX = nation.capitalX() * 16 + 8;
+            int blockZ = nation.capitalZ() * 16 + 8;
+            String id = "capital:" + nation.name();
 
             WaypointColor color = nearestPaletteColor(nation.color());
             // The last boolean of the Xaero constructor is "temporary": these
@@ -176,11 +174,12 @@ final class XaeroBridge {
             renderInfo.setWaypointColor(color);
             renderInfo.setInitials(initials(nation.name()));
             waypoints.addRenderInfoOverride(id, renderInfo);
+            publishedCount++;
         }
 
         published = true;
-        LOGGER.info("{} XAERO waypoints published: {} claims from {} nations (Xaero sees {})",
-                ModServerCommands.SELFTEST_MARKER, limit, pendingNations.length, waypoints.getCount());
+        LOGGER.info("{} XAERO waypoints published: {} capital markers from {} nations (Xaero sees {})",
+                ModServerCommands.SELFTEST_MARKER, publishedCount, pendingNations.length, waypoints.getCount());
     }
 
     private static void logNotReady(String motivo) {

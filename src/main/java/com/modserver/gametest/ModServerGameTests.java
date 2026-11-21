@@ -116,8 +116,42 @@ public class ModServerGameTests {
         helper.succeed();
     }
 
-    /** The chunk key packs X and Z correctly (including negative values). */
+    /**
+     * The territory of a nation must be contiguous: only the chunks next to the
+     * land already owned can be claimed.
+     */
     @GameTest(template = "empty")
+    public void territoryMustBeContiguous(GameTestHelper helper) {
+        ClaimIndex index = new ClaimIndex();
+        UUID nation = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+        String dim = "minecraft:overworld";
+
+        helper.assertTrue(index.claim(new Claim(dim, 5, -3, nation, 0L)), "The first claim should work");
+        helper.assertTrue(index.claim(new Claim(dim, 9, 9, other, 0L)), "The other claim should work");
+
+        // The eight surrounding chunks touch the territory.
+        helper.assertTrue(index.isAdjacentTo(nation, dim, 6, -3), "The east chunk touches the territory");
+        helper.assertTrue(index.isAdjacentTo(nation, dim, 4, -3), "The west chunk touches the territory");
+        helper.assertTrue(index.isAdjacentTo(nation, dim, 5, -2), "The north chunk touches the territory");
+        helper.assertTrue(index.isAdjacentTo(nation, dim, 5, -4), "The south chunk touches the territory");
+        helper.assertTrue(index.isAdjacentTo(nation, dim, 6, -2), "The diagonal chunk touches the territory");
+
+        // Far away chunks do not.
+        helper.assertFalse(index.isAdjacentTo(nation, dim, 7, -3), "A distant chunk does not touch");
+        helper.assertFalse(index.isAdjacentTo(nation, dim, 5, -5), "A distant chunk does not touch");
+        helper.assertFalse(index.isAdjacentTo(nation, dim, 8, 8), "A distant chunk does not touch");
+        helper.assertFalse(index.isAdjacentTo(nation, dim, 9, 9), "The chunk of another nation is not ours");
+        helper.assertFalse(index.isAdjacentTo(other, dim, 5, -3), "The territory of a nation is not shared");
+
+        helper.assertTrue(index.chunkCount(nation, dim) == 1, "The nation must have 1 chunk in the dimension");
+        helper.assertTrue(index.chunkCount(nation, "minecraft:the_nether") == 0,
+                "The chunks of another dimension are not counted");
+
+        helper.succeed();
+    }
+
+    /** The chunk key packs X and Z correctly (including negative values). */    @GameTest(template = "empty")
     public void chunkKeyPacksCorrectly(GameTestHelper helper) {
         long key = Claim.pack(-120, 3400);
         helper.assertTrue(Claim.unpackX(key) == -120, "X must survive the packing");

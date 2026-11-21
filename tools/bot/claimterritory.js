@@ -10,7 +10,7 @@
 const mineflayer = require('mineflayer')
 
 function parseArgs (argv) {
-  const args = { host: '127.0.0.1', port: 25565, username: 'AgentBot', nation: 'Testland', duration: 60 }
+  const args = { host: '127.0.0.1', port: 25565, username: 'AgentBot', nation: 'Testland', duration: 60, color: null }
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i]
     const next = () => argv[++i]
@@ -19,6 +19,7 @@ function parseArgs (argv) {
     else if (a === '--user' || a === '--username') args.username = next()
     else if (a === '--nation') args.nation = next()
     else if (a === '--duration') args.duration = parseInt(next(), 10)
+    else if (a === '--color') args.color = next()
   }
   return args
 }
@@ -53,7 +54,10 @@ async function main () {
     if (text.includes('[nacion]')) log(`server: ${text}`)
   })
 
-  bot.chat(`/nacion crear ${args.nation}`)
+  const create = args.color
+    ? `/nacion crear ${args.nation} ${args.color}`
+    : `/nacion crear ${args.nation}`
+  bot.chat(create)
   await sleep(3000)
 
   let lastChunk = null

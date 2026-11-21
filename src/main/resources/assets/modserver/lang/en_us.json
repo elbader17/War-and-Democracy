@@ -1,5 +1,8 @@
 {
   "itemGroup.modserver": "ModServer",
   "block.modserver.cog": "ModServer Cog",
-  "item.modserver.cog": "ModServer Cog"
+  "item.modserver.cog": "ModServer Cog",
+  "screen.modserver.nation_map": "Nation map",
+  "key.categories.modserver": "ModServer",
+  "key.modserver.nation_map": "Open nations map"
 }

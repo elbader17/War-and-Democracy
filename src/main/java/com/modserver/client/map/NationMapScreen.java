@@ -8,7 +8,9 @@ import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Nation map of the mod: full screen showing the real territory.
@@ -48,6 +50,8 @@ public class NationMapScreen extends Screen {
             centerChunkX = minecraft.player.chunkPosition().x;
             centerChunkZ = minecraft.player.chunkPosition().z;
         }
+        com.modserver.command.ModServerCommands.LOGGER.info("{} MAPSCREEN opened at chunk ({}, {})",
+                com.modserver.command.ModServerCommands.SELFTEST_MARKER, (int) centerChunkX, (int) centerChunkZ);
     }
 
     /**
@@ -151,7 +155,10 @@ public class NationMapScreen extends Screen {
             graphics.fill(left, py, right, py + 1, gridColor);
         }
 
-        // Territories.
+        // Territories: every chunk is painted, and the border of the whole
+        // territory is drawn on top, so the land is seen as one shape and not
+        // as a cloud of isolated squares.
+        Set<Long> owned = new HashSet<>();
         for (NationMapPayload.ClaimView claim : claims) {
             if (claim.nationIndex() < 0 || claim.nationIndex() >= nations.length) {
                 continue;
@@ -167,6 +174,34 @@ public class NationMapScreen extends Screen {
                 continue;
             }
             graphics.fill(px, py, px + cellSize, py + cellSize, fillColor);
+            owned.add(claimKey(claim.nationIndex(), claim.chunkX(), claim.chunkZ()));
+        }
+
+        // Border of each territory: the edges that are not shared with another
+        // chunk of the same nation.
+        for (NationMapPayload.ClaimView claim : claims) {
+            if (claim.nationIndex() < 0 || claim.nationIndex() >= nations.length) {
+                continue;
+            }
+            NationMapPayload.NationView nation = nations[claim.nationIndex()];
+            int px = (int) (originX + claim.chunkX() * cellSize);
+            int py = (int) (originZ + claim.chunkZ() * cellSize);
+            if (px + cellSize < left || px > right || py + cellSize < top || py > bottom) {
+                continue;
+            }
+            int border = brighten(nation.color() & 0xFFFFFF);
+            if (!owned.contains(claimKey(claim.nationIndex(), claim.chunkX() - 1, claim.chunkZ()))) {
+                graphics.fill(px, py, px + cellSize, py + 2, border);
+            }
+            if (!owned.contains(claimKey(claim.nationIndex(), claim.chunkX() + 1, claim.chunkZ()))) {
+                graphics.fill(px, py + cellSize - 2, px + cellSize, py + cellSize, border);
+            }
+            if (!owned.contains(claimKey(claim.nationIndex(), claim.chunkX(), claim.chunkZ() - 1))) {
+                graphics.fill(px, py, px + 2, py + cellSize, border);
+            }
+            if (!owned.contains(claimKey(claim.nationIndex(), claim.chunkX(), claim.chunkZ() + 1))) {
+                graphics.fill(px + cellSize - 2, py, px + cellSize, py + cellSize, border);
+            }
         }
 
         // Capitals.
@@ -222,6 +257,24 @@ public class NationMapScreen extends Screen {
             }
         }
         return -1;
+    }
+
+    /** Key of a chunk inside a nation: it identifies "this chunk of this nation". */
+    private static long claimKey(int nationIndex, int chunkX, int chunkZ) {
+        return ((long) nationIndex << 32)
+                | ((chunkX & 0xFFFFL) << 16)
+                | (chunkZ & 0xFFFFL);
+    }
+
+    /** Blends a color with white: used for the border of the territories. */
+    private static int brighten(int rgb) {
+        int r = (rgb >> 16) & 0xFF;
+        int g = (rgb >> 8) & 0xFF;
+        int b = rgb & 0xFF;
+        r = r + (255 - r) / 2;
+        g = g + (255 - g) / 2;
+        b = b + (255 - b) / 2;
+        return (r << 16) | (g << 8) | b;
     }
 
     // ------------------------------------------------------------------ events

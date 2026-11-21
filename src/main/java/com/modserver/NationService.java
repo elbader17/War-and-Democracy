@@ -221,6 +221,15 @@ public final class NationService {
             }
         }
 
+        // Contiguous territory: a chunk can only be claimed when it touches the
+        // land the nation already owns. The first chunk of a nation must be next
+        // to its capital, so the territory always grows as one shape.
+        if (configBoolean(ModServerConfig.CLAIMS_MUST_BE_CONTIGUOUS, true)
+                && !isNextToTerritory(owned, dimension, chunk.x, chunk.z)) {
+            return Result.fail("You can only claim chunks next to your territory"
+                    + (claims.chunkCount(owned.id(), dimension) == 0 ? " (next to your capital)" : ""));
+        }
+
         claims.claim(new Claim(dimension, chunk.x, chunk.z, owned.id(), player.serverLevel().getGameTime()));
         markDirty();
         markMapDirty();
@@ -531,6 +540,24 @@ public final class NationService {
     }
 
     /** Identifier of the nation that owns a chunk (or null if it is free). */
+    /**
+     * Checks whether a chunk touches the territory of a nation.
+     *
+     * <p>If the nation has no chunk in that dimension yet, the capital is used as
+     * the anchor: the first claim has to be next to it.</p>
+     */
+    private boolean isNextToTerritory(Nation nation, String dimension, int chunkX, int chunkZ) {
+        if (claims.chunkCount(nation.id(), dimension) > 0) {
+            return claims.isAdjacentTo(nation.id(), dimension, chunkX, chunkZ);
+        }
+        if (!nation.hasCapital()) {
+            return false;
+        }
+        int dx = Math.abs(nation.capitalX() - chunkX);
+        int dz = Math.abs(nation.capitalZ() - chunkZ);
+        return Math.max(dx, dz) <= 1;
+    }
+
     private UUID claimNationId(String dimension, int chunkX, int chunkZ) {
         Claim claim = claims.claimAt(dimension, chunkX, chunkZ);
         return claim == null ? null : claim.nationId();

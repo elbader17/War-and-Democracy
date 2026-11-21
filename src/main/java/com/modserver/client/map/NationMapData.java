@@ -37,6 +37,9 @@ public final class NationMapData {
 
         // The player minimap is updated too (if it is installed).
         XaeroMapProvider.update(nations, claims, playerY);
+
+        // And the territory is drawn as a shape in JourneyMap (if it is installed).
+        JourneyMapProvider.update(nations, claims, playerY);
     }
 
     public static synchronized NationMapPayload.NationView[] nations() {

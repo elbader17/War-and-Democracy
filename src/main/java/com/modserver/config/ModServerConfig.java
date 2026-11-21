@@ -19,6 +19,7 @@ public final class ModServerConfig {
     public static final ModConfigSpec.IntValue MAP_SYNC_RADIUS_CHUNKS;
     public static final ModConfigSpec.IntValue MAP_MAX_MARKERS;
     public static final ModConfigSpec.BooleanValue CLAIMS_ENABLED;
+    public static final ModConfigSpec.BooleanValue CLAIMS_MUST_BE_CONTIGUOUS;
     public static final ModConfigSpec.BooleanValue CROSS_DIMENSION_DISABLED;
     public static final ModConfigSpec.BooleanValue ECONOMY_ENABLED;
     public static final ModConfigSpec.IntValue STARTING_BALANCE;
@@ -175,6 +176,13 @@ public final class ModServerConfig {
         CROSS_DIMENSION_DISABLED = builder
                 .comment("Restricts the claims to the overworld")
                 .define("overworldOnly", true);
+
+        CLAIMS_MUST_BE_CONTIGUOUS = builder
+                .comment("The territory of a nation must be contiguous: a chunk can only be",
+                        "claimed when it is next to a chunk the nation already owns",
+                        "(the first chunk of a nation must be next to its capital)",
+                        "false = free claiming, anywhere in the world")
+                .define("claimsMustBeContiguous", true);
 
         builder.pop();
 

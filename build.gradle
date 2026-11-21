@@ -101,6 +101,53 @@ neoForge {
             systemProperty 'modserver.debugMap', 'true'
         }
 
+        // Demo client: it joins, founds its own nation and prints its economy,
+        // so the screenshot shows the minimap markers and the chat.
+        clientDemo {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'modserver.autoJoin', project.dev_server_address
+            systemProperty 'modserver.autoCommands', '/nacion crear Demo 5636095;/nacion atacar 3 3;/nacion economia'
+            systemProperty 'modserver.autoScreenshot', 'true'
+            systemProperty 'modserver.autoScreenshotDelay', '160'
+            systemProperty 'modserver.autoQuit', 'true'
+            systemProperty 'modserver.debugMap', 'true'
+        }
+
+        // Same demo client, but with the own map of the mod open.
+        clientDemoMap {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'modserver.autoJoin', project.dev_server_address
+            systemProperty 'modserver.autoCommands', '/nacion economia'
+            systemProperty 'modserver.autoOpenMap', 'true'
+            systemProperty 'modserver.autoOpenMapDelay', '60'
+            systemProperty 'modserver.autoScreenshot', 'true'
+            systemProperty 'modserver.autoScreenshotDelay', '140'
+            systemProperty 'modserver.autoQuit', 'true'
+            systemProperty 'modserver.debugMap', 'true'
+        }
+
+        // Playable client: it joins the development server and stays open so a
+        // human can play the demo (no autoQuit, no screenshot).
+        clientPlay {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'modserver.autoJoin', project.dev_server_address
+        }
+
+        // Client that opens the full screen map of JourneyMap: the screenshot
+        // shows the territory of every nation as a shape (Layer B with polygons).
+        clientJourneyMap {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'modserver.autoJoin', project.dev_server_address
+            systemProperty 'modserver.autoOpenJourneyMap', 'true'
+            systemProperty 'modserver.autoScreenshot', 'true'
+            systemProperty 'modserver.autoScreenshotDelay', '180'
+            systemProperty 'modserver.autoQuit', 'true'
+        }
+
         server {
             server()
             programArgument '--nogui'
@@ -171,6 +218,17 @@ dependencies {
     // compileOnly to compile against it, localRuntime to test it on the dev client.
     compileOnly "xaero.minimap:xaerominimap-neoforge-${minecraft_version}:${xaero_minimap_version}"
     localRuntime "xaero.minimap:xaerominimap-neoforge-${minecraft_version}:${xaero_minimap_version}"
+
+    // JourneyMap: the second most used map mod (and the most polished one).
+    // Its API (waypoint/overlay API v2) is used for the Layer B of the map.
+    // compileOnly to compile against it, localRuntime to test it on the dev client.
+    compileOnly "maven.modrinth:journeymap:${journeymap_version}"
+    localRuntime "maven.modrinth:journeymap:${journeymap_version}"
+
+    // The public API of JourneyMap (v2.0.0) is shipped inside the mod jar as a
+    // JarJar dependency, so it is vendored in libs/ to compile against it
+    // (see libs/README.md for its origin).
+    compileOnly files("libs/journeymap-api-neoforge-2.0.0-1.21.1.jar")
 
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime

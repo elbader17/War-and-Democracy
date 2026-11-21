@@ -62,6 +62,53 @@ public final class ClaimIndex {
         return total;
     }
 
+    /** Number of chunks owned by a nation in one dimension. */
+    public int chunkCount(UUID nationId, String dimension) {
+        Map<Long, Claim> dimensionClaims = byDimension.get(dimension);
+        if (dimensionClaims == null) {
+            return 0;
+        }
+        int total = 0;
+        for (Claim claim : dimensionClaims.values()) {
+            if (claim.nationId().equals(nationId)) {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Checks whether a chunk touches the territory of a nation.
+     *
+     * <p>The territory is contiguous: a chunk can only be claimed when it is
+     * next to a chunk the nation already owns (the eight surrounding chunks
+     * count, so the corners of a block of land also touch).</p>
+     *
+     * @param nationId  nation that would own the chunk
+     * @param dimension dimension of the chunk
+     * @param chunkX    X of the chunk to check
+     * @param chunkZ    Z of the chunk to check
+     * @return true if the chunk is next to the territory of the nation
+     */
+    public boolean isAdjacentTo(UUID nationId, String dimension, int chunkX, int chunkZ) {
+        Map<Long, Claim> dimensionClaims = byDimension.get(dimension);
+        if (dimensionClaims == null) {
+            return false;
+        }
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (dx == 0 && dz == 0) {
+                    continue;
+                }
+                Claim neighbour = dimensionClaims.get(Claim.pack(chunkX + dx, chunkZ + dz));
+                if (neighbour != null && neighbour.nationId().equals(nationId)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /** Claims of a nation. */
     public List<Claim> claimsOf(UUID nationId) {
         List<Claim> result = new ArrayList<>();
