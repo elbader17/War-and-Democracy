@@ -49,9 +49,15 @@ disputes + territory map**, and **we rely on the minimap people already use**.
 **No minimap exposes a public API to draw territory polygons.** Xaero, JourneyMap
 and JEM only allow *markers* (waypoints). Design consequence:
 
-- Minimap integration = **dynamic waypoints** (one marker per visible claim,
-  with its own icon and color).
-- The **actual territory color** can only be painted on the mod's own map.
+- Minimap integration = **dynamic waypoints**. Since the claimed chunks would be a
+  cloud of points that hide the shape of the land, the minimap only shows **one
+  marker per nation** (its capital); the claimed chunks are *not* published there.
+- The **actual territory color** can only be painted on the mod's own map, where the
+  territory is drawn as a solid area with the border of the shape.
+- The territory of a nation is always **contiguous**: a chunk can only be claimed when
+  it touches the land the nation already owns (the first chunk must be next to the
+  capital). The land of a nation is therefore one shape on the map, not a scatter of
+  squares. Configurable with `claimsMustBeContiguous`.
 
 Additionally, in Xaero the waypoint color is a **21-color fixed enum** (not free RGB):
 the nation's RGB is mapped to the closest palette color, and the exact color is only
@@ -162,11 +168,13 @@ interface MapProvider {                 // client only
 ```
 
 - `XaeroMapProvider` (v1): uses `ThirdPartyWaypointManager` (official, verified API).
-  One waypoint per visible claim, with the nation's color and its own icon;
-  `setEnabledStateGetter` to instantly hide claims that are no longer yours.
+  One waypoint per nation (at its capital), with the nation's color and its own icon;
+  `setEnabledStateGetter` to instantly hide the markers of the nations that are gone.
   Since it is the same waypoint system, **Xaero's World Map shows them without any change**.
   The color is mapped from the nation's RGB to the 21 colors of the Xaero palette
   (nearest-neighbor); the exact RGB is visible on the own map.
+  The claimed chunks are **not** published as markers: the minimap stays clean and
+  the shape of the territory is only shown in the map of the mod.
 - `JourneyMapProvider` (v2): via its waypoint API.
 - `JemProvider` (v2): if NeoForge 1.21.1 support is confirmed.
 

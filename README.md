@@ -1,7 +1,16 @@
-# modServer
+# War & Democracy
 
-Development base for **Minecraft 1.21.1 with NeoForge** mods, built so that an agent can
-iterate against the real game without human supervision.
+**Nations, disputes, diplomacy and economy for Minecraft 1.21.1 (NeoForge).**
+
+A server-side mod for SMP servers that want the classic "land claiming" gameplay
+with a political layer on top: every player founds a **nation**, the land is
+**claimed chunk by chunk** (and always as one contiguous shape), the neighbours can
+**dispute** it, the nations sign **pacts, alliances or wars** between them, and
+every piece of land has a price in the **economy of the mod** (bigger territory =
+more income, but also a more expensive defense).
+
+Built as a **development base for Minecraft 1.21.1 with NeoForge** mods, so that
+an agent can iterate against the real game without human supervision.
 
 | Piece | Version |
 |---|---|
@@ -12,13 +21,17 @@ iterate against the real game without human supervision.
 | Java | Temurin 21.0.13 (LTS) |
 | Mod | `modserver` (package `com.modserver`) |
 
-**Verified state:** the mod compiles, passes **30/30 GameTests** inside the game (8 for the
-nation model + 11 for disputes and diplomacy + 11 for the economy), the bot joins the world
-as a real player (even as a *vanilla* client), the GUI client connects to the server on its
-own under WSLg, **the nation map paints the territory with the exact RGB colour** and **the
-nation markers show up in the Xaero minimap** (cyan = the nation colour). Reference
-screenshots: `tools/logs/nation-map.png` (own map), `tools/logs/nation-minimap.png` (in-game
-view with the minimap) and `tools/logs/client-ingame.png` (game running with the mod block).
+**Verified state:** the mod compiles, passes **31/31 GameTests** inside the game
+(nation model, claims and contiguity, disputes, diplomacy and economy), the bot
+joins the world as a real player (even as a *vanilla* client), the GUI client
+connects to the server on its own, **the nation map paints the territory with the
+exact RGB colour and draws the border of the shape**, the **nation markers show up
+in the Xaero minimap** (one per nation) and the **territory is drawn as a polygon
+in JourneyMap** (the most polished map mod, used as a dependency). Reference
+screenshots: `tools/logs/demo-2-nationmap.png` (own map),
+`tools/logs/demo-1-minimap.png` (in-game view with the minimap),
+`tools/logs/journeymap-1-territory.png` (JourneyMap) and
+`tools/logs/client-ingame.png` (game running with the mod block).
 
 ---
 
@@ -45,9 +58,10 @@ projects/minecraft/
 │   │   ├── data/ModServerDataGen.java   <- datagen (recipe + advancement)
 │   │   ├── network/                  <- map payloads + registration (common code)
 │   │   ├── client/ModServerClientCommands.java  <- /modserver screenshot (client only)
-│   │   ├── client/map/                <- own map (Layer A) + Xaero bridge (Layer B)
+│   │   ├── client/ModServerKeyBindings.java     <- key bindings (M = nation map)
+│   │   ├── client/map/                <- own map (Layer A) + Xaero and JourneyMap bridges (Layer B)
 │   │   ├── client/network/ModServerClientNetworking.java  <- client handlers
-│   │   └── gametest/                  <- ModServerGameTests (8), ModServerDisputeGameTests (11),
+│   │   └── gametest/                  <- ModServerGameTests (9), ModServerDisputeGameTests (11),
 │   │                                   ModServerEconomyGameTests (11)
 │   ├── src/main/resources/assets/modserver/     (lang, icon.png, block model and texture)
 │   ├── src/main/resources/data/modserver/structure/empty.nbt  <- GameTest template
@@ -65,15 +79,37 @@ projects/minecraft/
 └── .tools/                     <- marker file for the project root
 ```
 
-## 2. Toolchain (installed in WSL, no sudo)
+## 2. Toolchain and how to build it
+
+The project is **cross platform**: Java 21 + Gradle + NeoForge, with no Windows
+specific code. It was developed under WSL2 (the scripts are plain `bash`) and runs
+natively on Linux, macOS and Windows (with WSL or Git Bash for the scripts).
 
 | Tool | Path |
 |---|---|
-| JDK 21 | `~/.mctools/jdk21` |
-| Node 22 | `~/.mctools/node` |
-| Gradle cache | `~/.gradle` (on ext4: much faster than `/mnt/c`) |
+| JDK 21 | `~/.mctools/jdk21` (or any JDK 21 in `JAVA_HOME`) |
+| Node 22 | `~/.mctools/node` (only for the test bots) |
+| Gradle cache | `~/.gradle` (keep it on a native filesystem, not on a Windows drive) |
+| Python 3 | only for `tools/png_analyze.py` and the texture/structure generators |
 
-`tools/env.sh` exports them. Every script sources `tools/env.sh` on its own.
+`tools/env.sh` exports them (it computes every path from its own location, so the
+project can live anywhere). Every script sources `tools/env.sh` on its own.
+
+On a native Linux machine you can re-enable the Gradle file watching (it is only
+disabled in `gradle.properties` because WSL2's `drvfs` does not report file
+changes reliably):
+
+```properties
+org.gradle.vfs.watch=true
+```
+
+First run on a new machine:
+
+```bash
+source tools/env.sh
+./tools/build.sh          # ./gradlew build -> jar in build/libs/
+./tools/gametest.sh       # 31 GameTests inside the game
+```
 
 ## 3. Commands
 
@@ -155,7 +191,7 @@ runner returns a non-zero exit code so an agent can decide on its own.
 | Command | What it does |
 |---|---|
 | `/nacion crear <name> [colour]` | founds a nation (one per player); the capital is the chunk you are on |
-| `/nacion claim` | claims the chunk you are on |
+| `/nacion claim` | claims the chunk you are on (it must touch your territory) |
 | `/nacion unclaim` | releases the chunk you are on |
 | `/nacion info` | your nation card (chunks, members, colour, capital, relations) |
 | `/nacion lista` | lists the nations of the world |
@@ -186,6 +222,22 @@ Fixed game rules: one nation per player, the nation survives the death of its ow
 claims do not expire, 1 chunk per claim, overworld only and **blocks can be broken**
 (there is no anti-grief protection).
 
+**The territory is always contiguous**: a chunk can only be claimed when it touches
+the land the nation already owns (the eight neighbouring chunks count, so the corners
+of a block of land also touch). The first chunk of a nation must be next to its
+capital. This way every nation is a single shape on the map and never a cloud of
+isolated squares. It can be turned off with `claimsMustBeContiguous = false` in
+`world/config/modserver-server.toml`.
+
+**Map layers**:
+- **The map of the mod** (`M`, or `/nacion mapa`) paints the territory of every nation
+  as a solid area with its exact colour and draws the border of the shape.
+- **The Xaero minimap** only shows one marker per nation (its capital): the claimed
+  chunks are *not* painted as points there, so the minimap stays clean.
+- **JourneyMap** (used as a dependency, it is the most polished map mod) draws the
+  territory of every nation as a **polygon** in its minimap and in its full screen
+  map, thanks to its overlay API v2. See **[docs/MAPS.md](docs/MAPS.md)**.
+
 The client can also be automated with system properties:
 
 | Property | Effect |
@@ -195,11 +247,15 @@ The client can also be automated with system properties:
 | `modserver.autoScreenshotDelay=60` | ticks to wait before the capture |
 | `modserver.autoOpenMap=true` | opens the map screen when joining the world |
 | `modserver.autoOpenMapDelay=40` | ticks to wait before opening the map |
+| `modserver.autoOpenJourneyMap=true` | opens the full screen map of JourneyMap |
+| `modserver.autoCommands=/a;/b` | runs commands 20 ticks after joining the world |
 
 The properties are set in `build.gradle`, in the run configurations `clientAuto`
-(capture), `clientMap` (capture + map opened) and `clientMinimap` (capture without
-opening the map, to see the markers in the Xaero minimap), which are launched with
-`./gradlew runClientAuto`, `./gradlew runClientMap` and `./gradlew runClientMinimap`.
+(capture), `clientMap` (capture + map opened), `clientMinimap` (capture without
+opening the map, to see the markers in the Xaero minimap) and `clientJourneyMap`
+(capture of the full screen map of JourneyMap with the territories), which are
+launched with `./gradlew runClientAuto`, `./gradlew runClientMap`,
+`./gradlew runClientMinimap` and `./gradlew runClientJourneyMap`.
 
 ### Disputes (Phase 4)
 
@@ -288,16 +344,21 @@ server administrator: `/nacion admin economy tick` (forces the day close) and
 
 The full design (domain, persistence, disputes, own map and minimap integration) is in
 **[docs/PLAN.md](docs/PLAN.md)**, with the verified reference of the minimap APIs in
-**[docs/API-MINIMAPS.md](docs/API-MINIMAPS.md)**.
+**[docs/API-MINIMAPS.md](docs/API-MINIMAPS.md)** and of the three map layers in
+**[docs/MAPS.md](docs/MAPS.md)**.
 
 Summary of what was decided there:
 
 - Every player founds a **nation** (name, RGB colour, capital, members with roles).
 - Nations **claim chunks** (granularity: 1 chunk) and can **dispute** them (10 minute
   defense window; if nobody defends, the chunk changes owner).
-- **Two map layers**: an own map (`/nacion mapa`) that paints the real territory with the
-  exact colour, and dynamic markers in Xaero's Minimap / World Map (and later JourneyMap
-  and JEM) through its official waypoint API.
+- The territory of a nation is always **contiguous**: a chunk can only be claimed
+  next to the land already owned, so a nation is a shape and not a scatter of squares.
+- **Three map layers**: an own map (`M` or `/nacion mapa`) that paints the real
+  territory with the exact colour and the border of the shape, the **markers of the
+  capitals** in Xaero's Minimap / World Map, and the **territory drawn as a polygon**
+  in JourneyMap (used as a dependency: it is the most polished map mod and the only
+  one with a public API for polygons).
 
 ## 8. Environment notes
 
