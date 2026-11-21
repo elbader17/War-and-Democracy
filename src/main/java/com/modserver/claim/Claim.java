@@ -40,7 +40,7 @@ public final class Claim {
         return nationId;
     }
 
-    public void setNationId(UUID nationId) {
+    void setNationId(UUID nationId) {
         this.nationId = nationId;
     }
 

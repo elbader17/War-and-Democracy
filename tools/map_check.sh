@@ -3,7 +3,7 @@
 #   1. starts a server with a clean world
 #   2. creates a territory (nation + several chunks) with the bot
 #   3. starts the client and captures the OWN MAP screen (Layer A)
-#   4. starts the client and captures the in-game view with the Xaero MINIMAP (Layer B)
+#   4. starts the client and captures the in-game view with the JourneyMap minimap
 #
 #   tools/map_check.sh
 #
@@ -59,7 +59,7 @@ done
 sleep 3
 
 echo "    nations status:"
-"$MODSERVER_ROOT/tools/console.sh" "nacion lista" 2>&1 | sed 's/^/    /' || true
+"$MODSERVER_ROOT/tools/console.sh" "nation list" 2>&1 | sed 's/^/    /' || true
 
 echo "==> [3/5] Capturing the own map (Layer A)"
 rm -f "$MODSERVER_ROOT/run/screenshots/modserver.png"
@@ -81,7 +81,7 @@ fi
 
 echo "==> [4/5] Capturing the in-game view with the minimap (Layer B)"
 rm -f "$MODSERVER_ROOT/run/screenshots/modserver.png"
-./gradlew runClientAuto --console=plain > "$MODSERVER_LOG_DIR/client-minimap.log" 2>&1 &
+./gradlew runClientMinimap --console=plain > "$MODSERVER_LOG_DIR/client-minimap.log" 2>&1 &
 CLIENT_PID=$!
 for _ in $(seq 1 60); do
   [ -f "$MODSERVER_ROOT/run/screenshots/modserver.png" ] && break
@@ -99,8 +99,8 @@ fi
 
 echo "==> [5/5] Checks"
 echo "    client (map):"
-grep -E "AUTOJOIN|MAPDATA|XAERO|SCREENSHOT" "$MODSERVER_LOG_DIR/client-map.log" | tail -6 || true
+grep -E "AUTOJOIN|MAPDATA|JOURNEYMAP|SCREENSHOT" "$MODSERVER_LOG_DIR/client-map.log" | tail -6 || true
 echo "    client (minimap):"
-grep -E "AUTOJOIN|MAPDATA|XAERO|SCREENSHOT" "$MODSERVER_LOG_DIR/client-minimap.log" | tail -6 || true
+grep -E "AUTOJOIN|MAPDATA|JOURNEYMAP|SCREENSHOT" "$MODSERVER_LOG_DIR/client-minimap.log" | tail -6 || true
 
 echo "Done."

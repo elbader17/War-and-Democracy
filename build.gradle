@@ -87,27 +87,25 @@ neoForge {
             systemProperty 'modserver.debugMap', 'true'
         }
 
-        // Client that connects on its own and does NOT open the map: the screenshot shows
-        // the game with the Xaero minimap and the nation markers (Layer B).
+        // Capture JourneyMap's minimap and the national borders during gameplay.
         clientMinimap {
             client()
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
             systemProperty 'modserver.autoJoin', project.dev_server_address
             systemProperty 'modserver.autoScreenshot', 'true'
-            // Wide margin: the markers are published once Xaero finishes
-            // initializing its HUD session, which happens after joining the world.
+            // Give JourneyMap time to map the terrain after joining the world.
             systemProperty 'modserver.autoScreenshotDelay', '240'
             systemProperty 'modserver.autoQuit', 'true'
             systemProperty 'modserver.debugMap', 'true'
         }
 
         // Demo client: it joins, founds its own nation and prints its economy,
-        // so the screenshot shows the minimap markers and the chat.
+        // so the screenshot shows the territory on the minimap and the chat.
         clientDemo {
             client()
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
             systemProperty 'modserver.autoJoin', project.dev_server_address
-            systemProperty 'modserver.autoCommands', '/nacion crear Demo 5636095;/nacion atacar 3 3;/nacion economia'
+            systemProperty 'modserver.autoCommands', '/nation create Demo 5636095;/nation attack 3 3;/nation economy'
             systemProperty 'modserver.autoScreenshot', 'true'
             systemProperty 'modserver.autoScreenshotDelay', '160'
             systemProperty 'modserver.autoQuit', 'true'
@@ -119,7 +117,7 @@ neoForge {
             client()
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
             systemProperty 'modserver.autoJoin', project.dev_server_address
-            systemProperty 'modserver.autoCommands', '/nacion economia'
+            systemProperty 'modserver.autoCommands', '/nation economy'
             systemProperty 'modserver.autoOpenMap', 'true'
             systemProperty 'modserver.autoOpenMapDelay', '60'
             systemProperty 'modserver.autoScreenshot', 'true'
@@ -214,13 +212,10 @@ configurations {
 }
 
 dependencies {
-    // Xaero's Minimap: official third-party waypoints API (Layer B of the map).
-    // compileOnly to compile against it, localRuntime to test it on the dev client.
+    // Optional capital markers for players who install Xaero's Minimap.
     compileOnly "xaero.minimap:xaerominimap-neoforge-${minecraft_version}:${xaero_minimap_version}"
-    localRuntime "xaero.minimap:xaerominimap-neoforge-${minecraft_version}:${xaero_minimap_version}"
 
-    // JourneyMap: the second most used map mod (and the most polished one).
-    // Its API (waypoint/overlay API v2) is used for the Layer B of the map.
+    // JourneyMap supplies the demo's minimap and territorial overlays.
     // compileOnly to compile against it, localRuntime to test it on the dev client.
     compileOnly "maven.modrinth:journeymap:${journeymap_version}"
     localRuntime "maven.modrinth:journeymap:${journeymap_version}"

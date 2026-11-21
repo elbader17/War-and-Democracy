@@ -67,18 +67,18 @@ echo "    chunk claimed by Alfa: $CX, $CZ"
 # Scenarios with the real coordinates of the disputed chunk.
 cat > "$WORK/beta.json" <<JSON
 [
-  { "command": "/nacion crear Beta", "expect": ["Nation Beta created"], "timeout": 20000 },
-  { "command": "/nacion disputar $CX $CZ", "expect": ["Dispute #1 opened"], "timeout": 20000 },
-  { "command": "/nacion disputar $CX $CZ", "expect": ["There is already an open dispute"], "timeout": 20000 },
-  { "command": "/nacion defender $CX $CZ", "expect": ["That chunk does not belong to your nation"], "timeout": 20000 }
+  { "command": "/nation create Beta", "expect": ["Nation Beta created"], "timeout": 20000 },
+  { "command": "/nation dispute $CX $CZ", "expect": ["Dispute #1 opened"], "timeout": 20000 },
+  { "command": "/nation dispute $CX $CZ", "expect": ["There is already an open dispute"], "timeout": 20000 },
+  { "command": "/nation defend $CX $CZ", "expect": ["That chunk does not belong to your nation"], "timeout": 20000 }
 ]
 JSON
 
 cat > "$WORK/alfa-defend.json" <<JSON
 [
-  { "command": "/nacion info", "expect": ["chunks 1"], "timeout": 20000 },
-  { "command": "/nacion defender $CX $CZ", "expect": ["defended"], "timeout": 20000 },
-  { "command": "/nacion info", "expect": ["chunks 1"], "timeout": 20000 }
+  { "command": "/nation info", "expect": ["chunks 1"], "timeout": 20000 },
+  { "command": "/nation defend $CX $CZ", "expect": ["defended"], "timeout": 20000 },
+  { "command": "/nation info", "expect": ["chunks 1"], "timeout": 20000 }
 ]
 JSON
 
@@ -93,25 +93,25 @@ node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/alfa-defend.json" \
   2>&1 | tee "$WORK/alfa-defend.log"
 
 echo "==> [5/6] Checking the state via RCON"
-DISPUTES="$("$MODSERVER_ROOT/tools/console.sh" "nacion disputas" || true)"
+DISPUTES="$("$MODSERVER_ROOT/tools/console.sh" "nation disputes" || true)"
 echo "$DISPUTES" | sed 's/^/    | /'
 check "the dispute is DEFENDED" "DEFENDED" "$DISPUTES"
 check "the dispute is #1" "#1" "$DISPUTES"
 
-LIST="$("$MODSERVER_ROOT/tools/console.sh" "nacion lista" || true)"
+LIST="$("$MODSERVER_ROOT/tools/console.sh" "nation list" || true)"
 echo "$LIST" | sed 's/^/    | /'
 check "Alfa keeps the chunk" "Alfa" "$LIST"
 
 echo "==> [6/6] Manual resolution: the chunk goes to the challenging nation"
-RESOLVE="$("$MODSERVER_ROOT/tools/console.sh" "nacion admin resolve 1 transfer" || true)"
+RESOLVE="$("$MODSERVER_ROOT/tools/console.sh" "nation admin resolve 1 transfer" || true)"
 echo "$RESOLVE" | sed 's/^/    | /'
 check "the dispute is transferred" "goes to the challenging nation" "$RESOLVE"
 
-DISPUTES2="$("$MODSERVER_ROOT/tools/console.sh" "nacion disputas" || true)"
+DISPUTES2="$("$MODSERVER_ROOT/tools/console.sh" "nation disputes" || true)"
 echo "$DISPUTES2" | sed 's/^/    | /'
 check "the dispute ends up TRANSFERRED" "TRANSFERRED" "$DISPUTES2"
 
-LIST2="$("$MODSERVER_ROOT/tools/console.sh" "nacion lista" || true)"
+LIST2="$("$MODSERVER_ROOT/tools/console.sh" "nation list" || true)"
 echo "$LIST2" | sed 's/^/    | /'
 check "Beta has the chunk now" "Beta" "$LIST2"
 

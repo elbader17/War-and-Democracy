@@ -9,7 +9,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * The server asks the client to open the nations map.
  *
  * <p>It is used instead of a client command to avoid clashing with the server
- * dispatcher: {@code /nacion mapa} is run by the server and the client receives the
+ * dispatcher: {@code /nation map} is run by the server and the client receives the
  * order.</p>
  */
 public record OpenMapPayload() implements CustomPacketPayload {

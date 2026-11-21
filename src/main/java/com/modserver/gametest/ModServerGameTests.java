@@ -65,6 +65,12 @@ public class ModServerGameTests {
         }
         helper.assertTrue(rejected, "A player must not be able to found two nations");
 
+        UUID successor = UUID.randomUUID();
+        nation.setRole(successor, NationRole.OWNER);
+        nation.setRole(successor, NationRole.MEMBER);
+        helper.assertTrue(nation.roleOf(successor) == NationRole.OWNER, "The owner keeps their role");
+        helper.assertTrue(nation.roleOf(player) == NationRole.MEMBER, "Only one player has the owner role");
+
         helper.succeed();
     }
 
@@ -74,15 +80,15 @@ public class ModServerGameTests {
         NationManager manager = new NationManager();
         helper.assertFalse(NationManager.isValidName("ab"), "A 2 character name is invalid");
         helper.assertFalse(NationManager.isValidName(""), "An empty name is invalid");
-        helper.assertFalse(NationManager.isValidName("nombre con espacios"), "Spaces are not valid");
-        helper.assertTrue(NationManager.isValidName("Nacion_1"), "Nacion_1 should be valid");
+        helper.assertFalse(NationManager.isValidName("name with spaces"), "Spaces are not valid");
+        helper.assertTrue(NationManager.isValidName("Nation_1"), "Nation_1 should be valid");
 
-        manager.create(UUID.randomUUID(), "Nacion_1", UUID.randomUUID(), 0xFFFFFF, 0L);
-        helper.assertTrue(manager.byName("nacion_1").isPresent(), "The search must ignore case");
+        manager.create(UUID.randomUUID(), "Nation_1", UUID.randomUUID(), 0xFFFFFF, 0L);
+        helper.assertTrue(manager.byName("nation_1").isPresent(), "The search must ignore case");
 
         boolean rejected = false;
         try {
-            manager.create(UUID.randomUUID(), "NACION_1", UUID.randomUUID(), 0xFFFFFF, 0L);
+            manager.create(UUID.randomUUID(), "NATION_1", UUID.randomUUID(), 0xFFFFFF, 0L);
         } catch (IllegalArgumentException e) {
             rejected = true;
         }

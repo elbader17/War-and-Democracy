@@ -2,17 +2,21 @@ package com.modserver.client.map;
 
 import com.modserver.command.ModServerCommands;
 import com.modserver.network.NationMapPayload;
+import com.modserver.network.DisputeMapPayload;
+import journeymap.api.v2.common.event.FullscreenEventRegistry;
+import net.minecraft.client.resources.language.I18n;
 import journeymap.api.client.impl.ClientAPI;
 import journeymap.api.v2.client.IClientAPI;
 import journeymap.api.v2.client.display.Context;
 import journeymap.api.v2.client.display.DisplayType;
 import journeymap.api.v2.client.display.PolygonOverlay;
+import journeymap.api.v2.client.model.MapPolygon;
 import journeymap.api.v2.client.model.MapPolygonWithHoles;
 import journeymap.api.v2.client.model.ShapeProperties;
 import journeymap.api.v2.client.util.PolygonHelper;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
@@ -55,19 +59,11 @@ final class JourneyMapBridge {
     /** Opacity of the fill of the territory. */
     private static final float FILL_OPACITY = 0.45f;
 
-    /** Opacity of the border of the territory. */
-    private static final float STROKE_OPACITY = 0.95f;
-
-    /** Width of the border of the territory (in blocks). */
-    private static final float STROKE_WIDTH = 2.0f;
-
-    private static final ResourceKey<Level> OVERWORLD =
-            ResourceKey.create(Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath("minecraft", "overworld"));
-
     // Data pending publication (the latest received from the server).
     private static NationMapPayload.NationView[] pendingNations = new NationMapPayload.NationView[0];
     private static NationMapPayload.ClaimView[] pendingClaims = new NationMapPayload.ClaimView[0];
     private static int pendingPlayerY;
+    private static boolean menuRegistered;
     private static boolean published;
     private static int attempts;
 
@@ -112,7 +108,23 @@ final class JourneyMapBridge {
             return;
         }
 
+        if (Minecraft.getInstance().level == null) {
+            return;
+        }
+        var dimension = NationMapData.dimension();
         try {
+            if (!menuRegistered) {
+                FullscreenEventRegistry.FULLSCREEN_POPUP_MENU_EVENT.subscribe(MOD_ID, event -> {
+                    if (!TerritoryScreen.supported()) return;
+                    var world = event.getFullscreen().getUiState().dimension;
+                    if (world == null) return;
+                    event.getPopupMenu().addMenuItem(I18n.get("map.modserver.inspect"), pos -> {
+                        var chunk = new ChunkPos(pos);
+                        TerritoryScreen.open(world.location(), chunk.x, chunk.z);
+                    });
+                });
+                menuRegistered = true;
+            }
             // Remove the shapes of the previous update: the territory changes
             // every time a chunk is claimed or released.
             api.removeAll(MOD_ID, DisplayType.Polygon);
@@ -132,28 +144,24 @@ final class JourneyMapBridge {
                     ShapeProperties shape = new ShapeProperties()
                             .setFillColor(nation.color())
                             .setFillOpacity(FILL_OPACITY)
-                            .setStrokeColor(brighten(nation.color()))
-                            .setStrokeOpacity(STROKE_OPACITY)
-                            .setStrokeWidth(STROKE_WIDTH)
-                            .setStrokePosition(ShapeProperties.StrokePosition.CENTER);
-
-                    PolygonOverlay overlay =
-                            new PolygonOverlay(MOD_ID, OVERWORLD, shape, polygon.hull);
-                    overlay.setHoles(polygon.holes);
+                            .setStrokeOpacity(0f);
+                    PolygonOverlay overlay = new PolygonOverlay(MOD_ID, dimension, shape, polygon);
                     overlay.setTitle(nation.name());
                     overlay.setLabel(nation.name());
-                    overlay.setOverlayGroupName(GROUP_NAME);
-                    overlay.setDisplayOrder(i);
-                    overlay.setMinZoom(0);
-                    overlay.setMaxZoom(10);
-                    overlay.setActiveUIs(Context.UI.Minimap, Context.UI.Fullscreen);
-                    overlay.setActiveMapTypes(Context.MapType.Day, Context.MapType.Night,
-                            Context.MapType.Topo, Context.MapType.Biome, Context.MapType.Underground);
-                    api.show(overlay);
+                    show(api, overlay, i);
                     shapes++;
                 }
             }
 
+            // Country fills can be cropped by the server sync radius. Only real
+            // edges get a stroke, including those on the far side of the crop.
+            for (var edge : NationMapData.borders()) {
+                showBorder(api, dimension, edge);
+            }
+
+            for (var battle : NationMapData.battles()) {
+                showBattle(api, dimension, battle);
+            }
             published = true;
             LOGGER.info("{} JOURNEYMAP territories drawn: {} shapes from {} nations",
                     ModServerCommands.SELFTEST_MARKER, shapes, pendingNations.length);
@@ -173,26 +181,62 @@ final class JourneyMapBridge {
         return chunks;
     }
 
-    private static void logNotReady(String motivo, Throwable error) {
+    private static void logNotReady(String reason, Throwable error) {
         if (attempts == 1 || attempts % 100 == 0) {
             if (error == null) {
                 LOGGER.info("{} JOURNEYMAP not ready yet ({}), will retry",
-                        ModServerCommands.SELFTEST_MARKER, motivo);
+                        ModServerCommands.SELFTEST_MARKER, reason);
             } else {
                 LOGGER.info("{} JOURNEYMAP not ready yet ({}), will retry: {}",
-                        ModServerCommands.SELFTEST_MARKER, motivo, error.toString());
+                        ModServerCommands.SELFTEST_MARKER, reason, error.toString());
             }
         }
     }
 
-    /** Blends a color with white: used for the border of the territories. */
-    private static int brighten(int rgb) {
-        int r = (rgb >> 16) & 0xFF;
-        int g = (rgb >> 8) & 0xFF;
-        int b = rgb & 0xFF;
-        r = r + (255 - r) / 2;
-        g = g + (255 - g) / 2;
-        b = b + (255 - b) / 2;
-        return (r << 16) | (g << 8) | b;
+    private static void showBorder(IClientAPI api, ResourceKey<Level> dimension,
+                                   NationMapData.Border edge) throws Exception {
+        int x = edge.x() * 16;
+        int z = edge.z() * 16;
+        int x2 = edge.horizontal() ? x + 16 * edge.length() : x + 1;
+        int z2 = edge.horizontal() ? z + 1 : z + 16 * edge.length();
+        int x1 = edge.horizontal() ? x : x - 1;
+        int z1 = edge.horizontal() ? z - 1 : z;
+        int y = pendingPlayerY;
+        MapPolygon strip = new MapPolygon(new BlockPos(x1, y, z1), new BlockPos(x2, y, z1),
+                new BlockPos(x2, y, z2), new BlockPos(x1, y, z2));
+        int rgb = edge.color() & 0xFFFFFF;
+        ShapeProperties shape = new ShapeProperties().setFillColor(rgb).setFillOpacity(1f)
+                .setStrokeColor(rgb).setStrokeOpacity(1f).setStrokeWidth(1f);
+        show(api, new PolygonOverlay(MOD_ID, dimension, shape, strip), pendingNations.length);
+    }
+
+    private static void showBattle(IClientAPI api, ResourceKey<Level> dimension, DisputeMapPayload.Battle battle) throws Exception {
+        int x = battle.x() * 16;
+        int z = battle.z() * 16;
+        var origin = new BlockPos(x, pendingPlayerY, z);
+        var tile = new MapPolygon(origin, origin.offset(16, 0, 0), origin.offset(16, 0, 16), origin.offset(0, 0, 16));
+        var red = new ShapeProperties().setFillColor(0xE73B49).setFillOpacity(0.82f)
+                .setStrokeColor(0xFF6469).setStrokeOpacity(1f).setStrokeWidth(2f);
+        var area = new PolygonOverlay(MOD_ID, dimension, red, tile);
+        String title = I18n.get("map.modserver.battle", battle.challenger(), battle.defender());
+        area.setTitle(title);
+        show(api, area, pendingNations.length + 1);
+        // A cross is readable over country colours and does not depend on hue alone.
+        var cross = new MapPolygon(origin.offset(2,0,4), origin.offset(4,0,2), origin.offset(8,0,6),
+                origin.offset(12,0,2), origin.offset(14,0,4), origin.offset(10,0,8), origin.offset(14,0,12),
+                origin.offset(12,0,14), origin.offset(8,0,10), origin.offset(4,0,14), origin.offset(2,0,12), origin.offset(6,0,8));
+        var ink = new ShapeProperties().setFillColor(0xFFF1DA).setFillOpacity(1f).setStrokeOpacity(0f);
+        var mark = new PolygonOverlay(MOD_ID, dimension, ink, cross);
+        mark.setTitle(title);
+        show(api, mark, pendingNations.length + 2);
+    }
+
+    private static void show(IClientAPI api, PolygonOverlay overlay, int order) throws Exception {
+        overlay.setOverlayGroupName(GROUP_NAME);
+        overlay.setDisplayOrder(order);
+        overlay.setActiveUIs(Context.UI.Minimap, Context.UI.Fullscreen);
+        overlay.setActiveMapTypes(Context.MapType.Day, Context.MapType.Night,
+                Context.MapType.Topo, Context.MapType.Biome, Context.MapType.Underground);
+        api.show(overlay);
     }
 }

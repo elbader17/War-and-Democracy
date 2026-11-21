@@ -58,6 +58,7 @@ public final class Nation {
     }
 
     public void setOwner(UUID newOwner) {
+        members.put(owner, NationRole.MEMBER);
         this.owner = newOwner;
         members.put(newOwner, NationRole.OWNER);
     }
@@ -83,7 +84,9 @@ public final class Nation {
             setOwner(player);
             return;
         }
-        members.put(player, role);
+        if (!player.equals(owner)) {
+            members.put(player, role);
+        }
     }
 
     public NationRole removeMember(UUID player) {

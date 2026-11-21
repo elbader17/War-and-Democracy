@@ -155,11 +155,8 @@ public final class ModServerStore {
                 for (Map.Entry<String, JsonElement> entry : members.entrySet()) {
                     UUID player = UUID.fromString(entry.getKey());
                     NationRole role = parseRole(entry.getValue().getAsString());
-                    if (role == NationRole.OWNER) {
-                        nation.setOwner(player);
-                    } else {
-                        nation.setRole(player, role);
-                    }
+                    // The top-level owner is authoritative for older saves with stale roles.
+                    nation.setRole(player, role == NationRole.OWNER ? NationRole.MEMBER : role);
                 }
             }
 

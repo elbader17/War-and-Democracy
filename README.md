@@ -1,5 +1,62 @@
 # War & Democracy
 
+## Getting started
+
+Use Java 21 and NeoForge **21.1.266** on a Minecraft Java **1.21.1** server. Run
+`tools/build.sh` with `JAVA_HOME` pointing to JDK 21, copy
+`build/libs/modserver-0.1.0.jar` into the server's `mods/` directory, and start
+the server. Players can join with vanilla Minecraft Java 1.21.1.
+
+1. Run `/nation create Aurora` in the Overworld to found a nation at your current
+   location. Each nation has one owner, and each player can found one nation.
+2. Run `/nation claim` to claim the 16 × 16 block chunk you are standing in.
+   Move into an adjacent chunk to expand. Press **F3 + G** to see chunk boundaries.
+3. In the demo, press **M** to open JourneyMap's overhead terrain map. Gold lines
+   separate neighboring nations. Pale lines border unclaimed land. A **pale X on
+   red** marks a disputed chunk. Right-click a chunk and choose **Inspect / dispute
+   territory** to see its owner, the participants in an active dispute, and the
+   remaining defense time. On an eligible rival chunk, review the price and
+   defense window and press **Dispute** to spend the coins. Install the mod and
+   JourneyMap on your NeoForge client for this view. The political map opens
+   with `/nation map`. On a vanilla client it appears in chat as a north-up grid.
+   Hover over a cell to see its coordinates and owner, or click it to inspect it.
+   The ▣ symbol marks an international border.
+4. Run `/nation economy` to inspect your treasury. Nations start with **100
+   coins**. With the default settings, three chunks generate 36 coins per game
+   day and yield **6.55 coins** after upkeep and defense. The sidebar shows your
+   balance, daily income and expenses, territory, capital, protection, and any
+   defense debt. It updates on both vanilla and modded clients. An existing
+   server scoreboard takes priority while it uses the sidebar.
+5. Use `/nation dispute X Z` to challenge another nation's chunk. A neutral
+   dispute costs **50 coins** and gives the owner **10 minutes** to defend.
+   `/nation attack X Z` declares war and opens a dispute for **25 coins** with a
+   **5-minute** defense window. X and Z are chunk coordinates. The owner can
+   defend with `/nation defend X Z` and pay any defense debt with `/nation defense pay`.
+
+The sample cog is available for existing worlds. Servers where every player has
+the mod installed can enable its recipe with `/datapack enable "mod/modserver:cog_demo"`.
+
+### Challenge a rival NPC
+
+In the demo, right-click the **Envoy of Baluarte** by the border road and press
+**T** to choose a challenge in chat. **Attack Baluarte** spends your nation's
+coins. **Accept an attack** lets Baluarte pay to challenge one of your chunks.
+Both options show the chunk coordinates before you commit.
+
+The bar at the top shows your role, your opponent, the chunk, and the remaining
+time. If several disputes are active, it shows the one ending first. Use
+`/nation disputes` to list them all. When time expires, the attacker takes the
+chunk unless the defender holds it. Use `/nation defend X Z` in the chunk's
+dimension while your protection is active. A protected garrison can spend one
+point at the deadline to hold the chunk automatically. Both nations receive the
+result in chat. Diplomatic wars continue between disputes. Use
+`/nation peace Baluarte` to return to neutrality. Open disputes keep their deadlines.
+
+To add an envoy on another server, an operator can stand in an unclaimed chunk
+and run `/nation admin rival Baluarte`. This creates a persistent envoy and founds
+a nation with up to three adjacent chunks. The rival participates in the same
+economy as player nations.
+
 **Nations, disputes, diplomacy and economy for Minecraft 1.21.1 (NeoForge).**
 
 A server-side mod for SMP servers that want the classic "land claiming" gameplay
@@ -16,7 +73,7 @@ an agent can iterate against the real game without human supervision.
 |---|---|
 | Minecraft | 1.21.1 |
 | NeoForge | 21.1.266 |
-| ModDevGradle | 2.0.148 |
+| ModDevGradle | 2.0.91 |
 | Gradle | 8.14.2 |
 | Java | Temurin 21.0.13 (LTS) |
 | Mod | `modserver` (package `com.modserver`) |
@@ -25,9 +82,8 @@ an agent can iterate against the real game without human supervision.
 (nation model, claims and contiguity, disputes, diplomacy and economy), the bot
 joins the world as a real player (even as a *vanilla* client), the GUI client
 connects to the server on its own, **the nation map paints the territory with the
-exact RGB colour and draws the border of the shape**, the **nation markers show up
-in the Xaero minimap** (one per nation) and the **territory is drawn as a polygon
-in JourneyMap** (the most polished map mod, used as a dependency). Reference
+exact RGB colour and draws the border of the shape**, and **JourneyMap shows those
+borders on the demo’s minimap**. Reference
 screenshots: `tools/logs/demo-2-nationmap.png` (own map),
 `tools/logs/demo-1-minimap.png` (in-game view with the minimap),
 `tools/logs/journeymap-1-territory.png` (JourneyMap) and
@@ -49,7 +105,7 @@ projects/minecraft/
 │   │   ├── block/ModServerBlocks.java   <- sample "cog" block
 │   │   ├── item/ModServerItems.java     <- items + creative tab
 │   │   ├── command/ModServerCommands.java   <- /modserver info|selftest|spawncog
-│   │   ├── command/NationCommands.java      <- /nacion crear|claim|unclaim|info|lista|miembros|color|acuerdo|mapa|disputar|defender|disputas|economia|defensa|atacar|guerra|paz|alianza|pacto|admin
+│   │   ├── command/NationCommands.java      <- /nation create|claim|unclaim|info|list|members|color|agreement|map|dispute|defend|disputes|economy|defense|attack|war|peace|alliance|pact|admin
 │   │   ├── nation/                   <- Nation, NationRole, NationRelation, NationManager (domain)
 │   │   ├── claim/                    <- Claim, ClaimIndex (territory)
 │   │   ├── dispute/                  <- Dispute, DisputeStatus, DisputeIndex, DisputeService (disputes)
@@ -129,7 +185,7 @@ tools/gametest.sh              # headless GameTest inside the game
 tools/screenshot.sh            # copies the game screenshot -> tools/logs/screen.png
 tools/map_check.sh             # visual check: the bot creates territory and the client
                                # captures the own map (tools/logs/nation-map.png) and the
-                               # view with the Xaero minimap (tools/logs/nation-minimap.png)
+                               # view with the JourneyMap minimap (tools/logs/nation-minimap.png)
 tools/dispute_check.sh         # E2E check of the disputes with two real bots
                                # (open, defend and transfer a chunk)
 tools/diplomacy_check.sh       # E2E check of the diplomacy with two real bots
@@ -183,40 +239,40 @@ runner returns a non-zero exit code so an agent can decide on its own.
 |---|---|---|
 | `/modserver info` | server | Minecraft, NeoForge and mod versions |
 | `/modserver selftest` | server | battery of checks; writes `MODSERVER_SELFTEST RESULT n/n PASS` in the server log and answers in chat |
-| `/modserver spawncog` | server | places the mod block in front of the player (useful for testing) |
+| `/modserver spawncog` | server | places a copper test marker, or the sample cog when its data pack is enabled |
 | `/modserver screenshot` | client | saves the game framebuffer in `<gameDir>/screenshots/modserver.png` |
 
-### Nation commands (`/nacion`, alias `/nation` and `/nac`)
+### Nation commands (`/nation`, legacy roots `/nacion` and `/nac`)
 
 | Command | What it does |
 |---|---|
-| `/nacion crear <name> [colour]` | founds a nation (one per player); the capital is the chunk you are on |
-| `/nacion claim` | claims the chunk you are on (it must touch your territory) |
-| `/nacion unclaim` | releases the chunk you are on |
-| `/nacion info` | your nation card (chunks, members, colour, capital, relations) |
-| `/nacion lista` | lists the nations of the world |
-| `/nacion miembros add\|remove <player>` | member management |
-| `/nacion color <0-16777215>` | nation RGB colour |
-| `/nacion acuerdo <nation> <pact\|ally\|war\|neutral>` | signs an agreement between nations |
-| `/nacion mapa` | opens the nation map (full screen, exact territory colour) |
-| `/nacion disputar [x] [z]` | opens a dispute over a chunk (yours by default) |
-| `/nacion defender [x] [z]` | the owning nation answers the dispute: the chunk is kept |
-| `/nacion disputas` | lists the disputes (state, chunk, challenger and defender) |
-| `/nacion guerra <nation>` | declares war (it changes how disputes work) |
-| `/nacion paz <nation>` | back to neutrality |
-| `/nacion alianza <nation>` | signs an alliance (disputes are blocked) |
-| `/nacion pacto <nation>` | signs a non-aggression pact (disputes are blocked) |
-| `/nacion atacar [x] [z]` | declares war (if needed) and opens a dispute over that chunk |
-| `/nacion economia` | treasury state: balance, income, upkeep, defense and investments |
-| `/nacion economia invertir <farm\|garrison\|treasury>` | invests coins in an upgrade |
-| `/nacion defensa` | today's defense cost and whether the nation is protected |
-| `/nacion defensa pagar` | pays for defense (protects the territory again) |
-| `/nacion admin resolve <id> keep\|transfer` | manual resolution (op level 2) |
-| `/nacion admin economy tick\|balance <nation> <coins>` | forces the economy day or sets a balance |
+| `/nation create <name> [colour]` | founds a nation (one per player); the capital is the chunk you are on |
+| `/nation claim` | claims the chunk you are on (it must touch your territory) |
+| `/nation unclaim` | releases the chunk you are on |
+| `/nation info` | your nation card (chunks, members, colour, capital, relations) |
+| `/nation list` | lists the nations of the world |
+| `/nation members add\|remove <player>` | member management |
+| `/nation color <0-16777215>` | nation RGB colour |
+| `/nation agreement <nation> <pact\|ally\|war\|neutral>` | signs an agreement between nations |
+| `/nation map` | opens the graphical nation map on a modded client or a local territory grid in vanilla chat |
+| `/nation dispute [x] [z]` | opens a dispute over a chunk (yours by default) |
+| `/nation defend [x] [z]` | the owning nation answers the dispute: the chunk is kept |
+| `/nation disputes` | lists the disputes (state, chunk, challenger and defender) |
+| `/nation war <nation>` | declares war (it changes how disputes work) |
+| `/nation peace <nation>` | back to neutrality |
+| `/nation alliance <nation>` | signs an alliance (disputes are blocked) |
+| `/nation pact <nation>` | signs a non-aggression pact (disputes are blocked) |
+| `/nation attack [x] [z]` | declares war (if needed) and opens a dispute over that chunk |
+| `/nation economy` | treasury state: balance, income, upkeep, defense and investments |
+| `/nation economy invest <farm\|garrison\|treasury>` | invests coins in an upgrade |
+| `/nation defense` | today's defense cost and whether the nation is protected |
+| `/nation defense pay` | pays for defense (protects the territory again) |
+| `/nation admin resolve <id> keep\|transfer` | manual resolution (op level 2) |
+| `/nation admin economy tick\|balance <nation> <coins>` | forces the economy day or sets a balance |
 
 The data is stored in **`world/modserver/nations.json`**, **`claims.json`** and
-**`disputes.json`** (plain JSON so an admin can edit it by hand). Server config:
-`world/config/modserver-server.toml`.
+**`disputes.json`**. Server settings are in `config/modserver-server.toml`. A world can
+override them in its own `serverconfig/modserver-server.toml`.
 
 Fixed game rules: one nation per player, the nation survives the death of its owner,
 claims do not expire, 1 chunk per claim, overworld only and **blocks can be broken**
@@ -227,16 +283,15 @@ the land the nation already owns (the eight neighbouring chunks count, so the co
 of a block of land also touch). The first chunk of a nation must be next to its
 capital. This way every nation is a single shape on the map and never a cloud of
 isolated squares. It can be turned off with `claimsMustBeContiguous = false` in
-`world/config/modserver-server.toml`.
+`config/modserver-server.toml`.
 
 **Map layers**:
-- **The map of the mod** (`M`, or `/nacion mapa`) paints the territory of every nation
+- **The political map** (`/nation map`) paints the territory of every nation
   as a solid area with its exact colour and draws the border of the shape.
-- **The Xaero minimap** only shows one marker per nation (its capital): the claimed
-  chunks are *not* painted as points there, so the minimap stays clean.
-- **JourneyMap** (used as a dependency, it is the most polished map mod) draws the
-  territory of every nation as a **polygon** in its minimap and in its full screen
-  map, thanks to its overlay API v2. See **[docs/MAPS.md](docs/MAPS.md)**.
+- **JourneyMap** supplies the demo's single minimap. It draws national territories
+  and borders during gameplay and on its full screen terrain map (`M` or `J`).
+- **Xaero's Minimap** shows capital markers for players who install it separately.
+  See **[docs/MAPS.md](docs/MAPS.md)**.
 
 The client can also be automated with system properties:
 
@@ -252,7 +307,7 @@ The client can also be automated with system properties:
 
 The properties are set in `build.gradle`, in the run configurations `clientAuto`
 (capture), `clientMap` (capture + map opened), `clientMinimap` (capture without
-opening the map, to see the markers in the Xaero minimap) and `clientJourneyMap`
+opening the map, to see the borders in the JourneyMap minimap) and `clientJourneyMap`
 (capture of the full screen map of JourneyMap with the territories), which are
 launched with `./gradlew runClientAuto`, `./gradlew runClientMap`,
 `./gradlew runClientMinimap` and `./gradlew runClientJourneyMap`.
@@ -261,17 +316,17 @@ launched with `./gradlew runClientAuto`, `./gradlew runClientMap`,
 
 The full cycle is:
 
-1. A nation opens a dispute over another nation's chunk: `/nacion disputar` (or
-   `/nacion disputar <x> <z>`). The defending nation gets a chat warning.
-2. The defender answers in time: `/nacion defender` -> the chunk is kept.
+1. A nation opens a dispute over another nation's chunk: `/nation dispute` (or
+   `/nation dispute <x> <z>`). The defending nation gets a chat warning.
+2. The defender answers in time: `/nation defend` -> the chunk is kept.
 3. If nobody defends before the window expires, **the chunk goes to the challenging
    nation** (the server checks it once per second).
-4. An administrator can resolve it by hand: `/nacion admin resolve <id> keep|transfer`
+4. An administrator can resolve it by hand: `/nation admin resolve <id> keep|transfer`
    (it can also re-resolve an already defended dispute: a player's decision does not bind
    the server administration).
 
 The defense window and the anti-abuse cooldowns live in
-`world/config/modserver-server.toml`:
+`config/modserver-server.toml`:
 
 | Option | Default | Purpose |
 |---|---|---|
@@ -285,8 +340,8 @@ assertions).
 
 ### Diplomacy (Phase 5)
 
-The relation between two nations is changed with `/nacion guerra|paz|alianza|pacto
-<nation>` (or with the generic `/nacion acuerdo <nation> <type>`). Relations are
+The relation between two nations is changed with `/nation war|peace|alliance|pact
+<nation>` (or with the generic `/nation agreement <nation> <type>`). Relations are
 bilateral and stored with the nation.
 
 **War has real effects** on disputes:
@@ -296,8 +351,8 @@ bilateral and stored with the nation.
 | Neutrality or broken pact | `disputeWindowMinutes` (10 min) | `disputeCooldownMinutes` (30 min) |
 | War | `warDisputeWindowMinutes` (5 min) | none (`warIgnoresDisputeCooldown`) |
 
-`/nacion atacar <x> <z>` is the invasion shortcut: it declares war (if needed) and opens
-the dispute over that chunk. `/nacion info` and `/nacion lista` show the relations and who
+`/nation attack <x> <z>` is the invasion shortcut: it declares war (if needed) and opens
+the dispute over that chunk. `/nation info` and `/nation list` show the relations and who
 is at war with whom. The end-to-end check is `tools/diplomacy_check.sh`.
 
 ### Economy (Phase 6)
@@ -312,7 +367,7 @@ charged, the income comes in and the defense is paid.
 | **Upkeep** | `claimDailyUpkeep` per chunk plus the upkeep of the investments |
 | **Defense** | `defenseBaseCost` + `defensePerChunkCost` x chunks + `defenseScaleCost` x chunks^2/100 -> **a big territory costs much more to defend** (the growth is more than linear) |
 | **Non-payment** | if the upkeep cannot be paid, the nation **loses the chunks farthest from its capital**; if the defense cannot be paid, it is left **UNPROTECTED** |
-| **Unprotected** | an unprotected nation **cannot defend its disputes** and its garrison does not act, until it pays (`/nacion defensa pagar`) |
+| **Unprotected** | an unprotected nation **cannot defend its disputes** and its garrison does not act, until it pays (`/nation defense pay`) |
 | **Attack** | opening a dispute costs `attackCost` (a deposit, never refunded); at war it costs half (`warAttackDiscountPercent`) |
 
 **What you invest in** (three investments, three levels each):
@@ -323,10 +378,10 @@ charged, the income comes in and the defense is paid.
 | **Garrison** | one point per level: it defends disputes **without any player connected** (the points are refilled when the defense is paid) | `garrisonCost` |
 | **Treasury** | +1% daily interest on the balance per level | `treasuryCost` |
 
-Commands: `/nacion economia` (state), `/nacion economia invertir
-<farm|garrison|treasury>`, `/nacion defensa` and `/nacion defensa pagar`. For the
-server administrator: `/nacion admin economy tick` (forces the day close) and
-`/nacion admin economy balance <nation> <coins>`. End-to-end check:
+Commands: `/nation economy` (state), `/nation economy invest
+<farm|garrison|treasury>`, `/nation defense` and `/nation defense pay`. For the
+server administrator: `/nation admin economy tick` (forces the day close) and
+`/nation admin economy balance <nation> <coins>`. End-to-end check:
 `tools/economy_check.sh`.
 
 ## 6. Adding content
@@ -354,7 +409,7 @@ Summary of what was decided there:
   defense window; if nobody defends, the chunk changes owner).
 - The territory of a nation is always **contiguous**: a chunk can only be claimed
   next to the land already owned, so a nation is a shape and not a scatter of squares.
-- **Three map layers**: an own map (`M` or `/nacion mapa`) that paints the real
+- **Three map layers**: a political map (`/nation map`) that paints the real
   territory with the exact colour and the border of the shape, the **markers of the
   capitals** in Xaero's Minimap / World Map, and the **territory drawn as a polygon**
   in JourneyMap (used as a dependency: it is the most polished map mod and the only

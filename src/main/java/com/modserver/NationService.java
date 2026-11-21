@@ -17,6 +17,7 @@ import com.modserver.nation.Nation;
 import com.modserver.nation.NationManager;
 import com.modserver.nation.NationRelation;
 import com.modserver.network.NationMapPayload;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -149,6 +150,32 @@ public final class NationService {
 
     // ----------------------------------------------------------------- operations
     public Result createNation(ServerPlayer player, String name, int color) {
+        return foundNation(player.getUUID(), name, color, dimensionId(player), player.chunkPosition(),
+                player.serverLevel().getGameTime());
+    }
+
+    public Result createRivalNation(UUID owner, String name, String dimension, ChunkPos chunk, long now) {
+        if (!configBoolean(ModServerConfig.CLAIMS_ENABLED, true) ||
+                (configBoolean(ModServerConfig.CROSS_DIMENSION_DISABLED, true) && !isOverworld(dimension))) {
+            return Result.fail("Territory claims are disabled in this dimension.");
+        }
+        if (!claims.isFree(dimension, chunk.x, chunk.z)) {
+            return Result.fail("Choose an unclaimed chunk for the rival nation.");
+        }
+        Result founded = foundNation(owner, name, 0x9C78EA, dimension, chunk, now);
+        if (founded.success()) {
+            Nation rival = nationOf(owner).orElseThrow();
+            claims.claim(new Claim(dimension, chunk.x, chunk.z, rival.id(), now));
+            int limit = Math.min(3, configInt(ModServerConfig.MAX_CHUNKS_PER_NATION, 100));
+            for (Direction side : Direction.Plane.HORIZONTAL) {
+                if (claims.chunkCount(rival.id()) >= limit) break;
+                claims.claim(new Claim(dimension, chunk.x + side.getStepX(), chunk.z + side.getStepZ(), rival.id(), now));
+            }
+        }
+        return founded;
+    }
+
+    private Result foundNation(UUID owner, String name, int color, String dimension, ChunkPos chunk, long now) {
         List<String> problems = NationManager.validateName(name);
         if (!problems.isEmpty()) {
             return Result.fail(problems.get(0));
@@ -157,21 +184,20 @@ public final class NationService {
             return Result.fail("A nation called " + name + " already exists");
         }
 
-        if (nations.ownedBy(player.getUUID()).isPresent()) {
+        if (nations.ownedBy(owner).isPresent()) {
             return Result.fail("You already have a nation ("
-                    + nations.ownedBy(player.getUUID()).get().name() + ")");
+                    + nations.ownedBy(owner).get().name() + ")");
         }
 
         int rgb = color & 0xFFFFFF;
         Nation nation;
         try {
-            nation = nations.create(UUID.randomUUID(), name, player.getUUID(), rgb,
-                    player.serverLevel().getGameTime());
+            nation = nations.create(UUID.randomUUID(), name, owner, rgb,
+                    now);
         } catch (IllegalStateException | IllegalArgumentException e) {
             return Result.fail(e.getMessage());
         }
-        ChunkPos chunk = player.chunkPosition();
-        nation.setCapital(dimensionId(player), chunk.x, chunk.z);
+        nation.setCapital(dimension, chunk.x, chunk.z);
         // Starting balance: the nation is born with a treasury to pay for its first defense.
         nation.economy().setBalance(economyRules().startingBalance());
         nation.economy().setDefended(true);
@@ -187,7 +213,7 @@ public final class NationService {
         }
         Optional<Nation> nation = actingNation(player.getUUID());
         if (nation.isEmpty()) {
-            return Result.fail("You do not have a nation. Use /nacion crear <nombre>");
+            return Result.fail("You do not have a nation. Use /nation create <name>");
         }
         Nation owned = nation.get();
         if (!owned.roleOf(player.getUUID()).canManageClaims()) {
@@ -253,8 +279,8 @@ public final class NationService {
         }
         claims.release(dimension, chunk.x, chunk.z);
         // If the chunk was under dispute, the dispute is cancelled: there is nothing to defend.
-        disputeService.cancelOpenAt(dimension, chunk.x, chunk.z,
-                gameTime(player), "release");
+        notifyOutcome(disputeService.cancelOpenAt(dimension, chunk.x, chunk.z,
+                gameTime(player), "release"));
         markDirty();
         markMapDirty();
         return Result.ok("Chunk " + chunk.x + ", " + chunk.z + " released");
@@ -290,8 +316,6 @@ public final class NationService {
         int z = chunkZ == null ? player.chunkPosition().z : chunkZ;
         String dimension = dimensionId(player);
 
-        long windowTicks = configInt(ModServerConfig.DISPUTE_WINDOW_MINUTES, 10) * 1200L;
-
         // Attacking costs coins: it is a deposit that is not refunded.
         EconomyRules rules = economyRules();
         boolean atWar = isAtWar(challenger, claimNationId(dimension, x, z));
@@ -309,7 +333,9 @@ public final class NationService {
 
         markDirty();
         markMapDirty();
-        notifyDefender(player, outcome.dispute());
+        Dispute dispute = outcome.dispute();
+        nations.byId(dispute.defenderNationId()).ifPresent(n -> notifyNation(n, "modserver.war.disputed", challenger.name(), x, z));
+        long windowTicks = outcome.dispute().deadline() - outcome.dispute().openedAt();
         return Result.ok(outcome.message() + ". The affected nation has "
                 + (windowTicks / 1200L) + " min to defend it");
     }
@@ -329,7 +355,7 @@ public final class NationService {
         // An unprotected nation (it has not paid for defense) cannot defend.
         if (!economyService.canDefend(defender)) {
             return Result.fail("Your nation is UNPROTECTED: it has not paid for defense. "
-                    + "Use /nacion defensa pagar to pay it");
+                    + "Use /nation defense pay to pay it");
         }
 
         DisputeService.Outcome outcome = disputeService.defend(defender.id(), dimension, x, z,
@@ -340,6 +366,7 @@ public final class NationService {
 
         markDirty();
         markMapDirty();
+        notifyOutcome(outcome.dispute());
         return Result.ok(outcome.message());
     }
 
@@ -352,6 +379,7 @@ public final class NationService {
         }
         markDirty();
         markMapDirty();
+        notifyOutcome(outcome.dispute());
         return Result.ok(outcome.message());
     }
 
@@ -369,6 +397,7 @@ public final class NationService {
             markDirty();
             markMapDirty();
             for (Dispute dispute : resolved) {
+                notifyOutcome(dispute);
                 String chunk = dispute.chunkX() + ", " + dispute.chunkZ();
                 if (dispute.status() == DisputeStatus.TRANSFERRED) {
                     ModServerCommands.LOGGER.info("Dispute #{} expired: the chunk {} goes to {}",
@@ -394,6 +423,10 @@ public final class NationService {
             if (gameTime <= dispute.deadline()) {
                 continue;
             }
+            Claim claim = claims.claimAt(dispute.dimension(), dispute.chunkX(), dispute.chunkZ());
+            if (claim == null || !claim.nationId().equals(dispute.defenderNationId())) {
+                continue;
+            }
             Nation defender = nations.byId(dispute.defenderNationId()).orElse(null);
             if (defender == null) {
                 continue;
@@ -405,28 +438,28 @@ public final class NationService {
             dispute.setResolvedAt(gameTime);
             dispute.setResolvedBy("garrison");
             disputes.reindex(dispute);
+            markDirty();
+            markMapDirty();
+            notifyOutcome(dispute);
             ModServerCommands.LOGGER.info("The garrison of {} defends the chunk {}, {} (dispute #{})",
                     defender.name(), dispute.chunkX(), dispute.chunkZ(), dispute.id());
         }
     }
 
-    /** Warns the connected players of the defending nation. */
-    private void notifyDefender(ServerPlayer actor, Dispute dispute) {
-        if (actor.server == null) {
-            return;
-        }
-        Nation defender = nations.byId(dispute.defenderNationId()).orElse(null);
-        Nation challenger = nations.byId(dispute.challengerNationId()).orElse(null);
-        String message = "[nacion] " + (defender == null ? "A nation" : defender.name())
-                + " has a dispute opened over chunk " + dispute.chunkX() + ", " + dispute.chunkZ()
-                + " by " + (challenger == null ? "another nation" : challenger.name())
-                + ". Use /nacion defender to defend it.";
-        for (ServerPlayer online : actor.server.getPlayerList().getPlayers()) {
-            Nation theirNation = nations.byId(dispute.defenderNationId()).orElse(null);
-            if (theirNation != null && theirNation.isMember(online.getUUID())) {
-                online.sendSystemMessage(Component.literal(message));
-            }
-        }
+    private void notifyOutcome(Dispute dispute) {
+        if (dispute == null) return;
+        String chunk = dispute.chunkX() + ", " + dispute.chunkZ();
+        String key = switch (dispute.status()) {
+            case TRANSFERRED -> "modserver.war.captured";
+            case DEFENDED, KEPT -> "garrison".equals(dispute.resolvedBy()) ? "modserver.war.garrison" : "modserver.war.kept";
+            case CANCELLED -> "modserver.war.cancelled";
+            case OPEN -> throw new IllegalArgumentException("The dispute is still open");
+        };
+        Object[] args = dispute.status() == DisputeStatus.CANCELLED ? new Object[]{chunk} :
+                new Object[]{nameOf(dispute.status() == DisputeStatus.TRANSFERRED
+                        ? dispute.challengerNationId() : dispute.defenderNationId()), chunk};
+        nations.byId(dispute.challengerNationId()).ifPresent(n -> notifyNation(n, key, args));
+        nations.byId(dispute.defenderNationId()).ifPresent(n -> notifyNation(n, key, args));
     }
 
     /** All the disputes (for the list command). */
@@ -434,7 +467,7 @@ public final class NationService {
         return disputes.all();
     }
 
-    private String nameOf(UUID nationId) {
+    public String nameOf(UUID nationId) {
         return nations.byId(nationId).map(Nation::name).orElse("unknown");
     }
 
@@ -463,7 +496,7 @@ public final class NationService {
     public EconomyRules economyRules() {
         return new EconomyRules(
                 configInt(ModServerConfig.STARTING_BALANCE, 100) * NationEconomy.CENTS,
-                configInt(ModServerConfig.CLAIM_INCOME, 2) * NationEconomy.CENTS,
+                configInt(ModServerConfig.CLAIM_INCOME, 12) * NationEconomy.CENTS,
                 configInt(ModServerConfig.CLAIM_UPKEEP, 1) * NationEconomy.CENTS,
                 configInt(ModServerConfig.DEFENSE_BASE, 20) * NationEconomy.CENTS,
                 configInt(ModServerConfig.DEFENSE_PER_CHUNK, 2) * NationEconomy.CENTS,
@@ -623,7 +656,7 @@ public final class NationService {
         other.get().setRelation(mine.get().id(), relation);
         markDirty();
         markMapDirty();
-        notifyNation(player, other.get(), describeRelation(relation));
+        notifyNation(other.get(), "modserver.relation." + relation.name().toLowerCase(java.util.Locale.ROOT));
         ModServerCommands.LOGGER.info("Relation between {} and {}: {} -> {}",
                 mine.get().name(), other.get().name(), previous, relation);
         return Result.ok(relationLabel(relation)
@@ -640,12 +673,12 @@ public final class NationService {
         if (mine.isEmpty()) {
             return Result.fail("You do not have a nation");
         }
-        Nation attacker = mine.get();
-
         int x = chunkX == null ? player.chunkPosition().x : chunkX;
         int z = chunkZ == null ? player.chunkPosition().z : chunkZ;
-        String dimension = dimensionId(player);
+        return attack(mine.get(), dimensionId(player), x, z, gameTime(player));
+    }
 
+    public Result attack(Nation attacker, String dimension, int x, int z, long now) {
         Claim target = claims.claimAt(dimension, x, z);
         if (target == null) {
             return Result.fail("That chunk is not claimed by anyone");
@@ -662,37 +695,33 @@ public final class NationService {
                     + ": you cannot attack its chunks");
         }
 
-        if (attacker.relationWith(victim.id()) != NationRelation.WAR) {
-            attacker.setRelation(victim.id(), NationRelation.WAR);
-            victim.setRelation(attacker.id(), NationRelation.WAR);
-            notifyNation(player, victim, "You have been declared at war by " + attacker.name());
-            ModServerCommands.LOGGER.info("{} declares war on {}", attacker.name(), victim.name());
-        }
-
+        boolean declaringWar = attacker.relationWith(victim.id()) != NationRelation.WAR;
         EconomyRules rules = economyRules();
-        boolean atWar = attacker.relationWith(victim.id()) == NationRelation.WAR;
-        EconomyService.Outcome canPay = economyService.canAttack(attacker, rules, atWar);
+        EconomyService.Outcome canPay = economyService.canAttack(attacker, rules, true);
         if (!canPay.success()) {
             return Result.fail(canPay.message());
         }
 
         DisputeService.Outcome outcome = disputeService.open(attacker.id(), dimension, x, z,
-                gameTime(player), disputeRules());
+                now, disputeRules(), declaringWar);
         if (!outcome.success()) {
             return Result.fail(outcome.message());
         }
         // Attack deposit: it is spent and not refunded.
-        economyService.spend(attacker, rules.attackCost(atWar));
+        long cost = rules.attackCost(true);
+        economyService.spend(attacker, cost);
         markDirty();
         markMapDirty();
-        notifyNation(player, victim, attacker.name() + " attacks your chunk " + x + ", " + z
-                + ". Defend it with /nacion defender");
+        if (declaringWar) {
+            ModServerCommands.LOGGER.info("{} declares war on {}", attacker.name(), victim.name());
+        }
+        notifyNation(victim, "modserver.war.invasion", attacker.name(), x, z);
         return Result.ok(outcome.message() + ". Attack paid: "
-                + EconomyService.coins(rules.attackCost(atWar)) + " coins");
+                + EconomyService.coins(cost) + " coins");
     }
 
     /** Dispute rules that apply right now (they are read from the configuration). */
-    private DisputeService.Rules disputeRules() {
+    public DisputeService.Rules disputeRules() {
         return new DisputeService.Rules(
                 configInt(ModServerConfig.DISPUTE_WINDOW_MINUTES, 10) * 1200L,
                 configInt(ModServerConfig.DISPUTE_COOLDOWN_MINUTES, 30) * 1200L,
@@ -722,14 +751,13 @@ public final class NationService {
     }
 
     /** Warns the connected players of a nation. */
-    private void notifyNation(ServerPlayer actor, Nation nation, String message) {
-        if (actor.server == null) {
+    private void notifyNation(Nation nation, String key, Object... args) {
+        if (currentServer == null) {
             return;
         }
-        String text = "[nacion] " + nation.name() + ": " + message;
-        for (ServerPlayer online : actor.server.getPlayerList().getPlayers()) {
+        for (ServerPlayer online : currentServer.getPlayerList().getPlayers()) {
             if (nation.isMember(online.getUUID())) {
-                online.sendSystemMessage(Component.literal(text));
+                online.sendSystemMessage(Component.literal("[nation] " + nation.name() + ": " + ServerLanguage.of(online).text(key, args)));
             }
         }
     }

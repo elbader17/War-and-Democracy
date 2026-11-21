@@ -37,6 +37,15 @@ public record EconomyRules(long startingBalance,
                             long treasuryUpkeep,
                             int maxLevel) {
 
+    public long dailyIncome(int chunks, NationEconomy economy) {
+        return chunks * claimIncome * economy.incomeMultiplierPercent() / 100L;
+    }
+
+    public long dailyUpkeep(int chunks, NationEconomy economy) {
+        return chunks * claimUpkeep
+                + investmentUpkeep(economy.farmLevel(), economy.garrisonLevel(), economy.treasuryLevel());
+    }
+
     /** Daily defense cost of a nation with {@code chunks} chunks. */
     public long defenseCost(int chunks) {
         long quadratic = defenseScale * (long) chunks * chunks / 100L;

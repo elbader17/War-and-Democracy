@@ -125,7 +125,7 @@ Dispute
 
 | Topic | Default | Reason |
 |---|---|---|
-| Claim granularity | 1 chunk (16x16) | simple and granular; `/nacion claim radio <n>` adds a 3x3/5x5 region in phase 3 |
+| Claim granularity | 1 chunk (16x16) | simple and granular; `/nation claim radius <n>` adds a 3x3/5x5 region in phase 3 |
 | Inheritance on death | **the nation survives**; if the owner dies and there are no officers, it passes to the oldest member; with no members → it is dissolved | avoids losing progress because of a silly death |
 | Claim expiration | **they do not expire** in v1 (upkeep configurable in phase 4) | disputes already create tension; expiration due to non-payment is a different thing |
 | Dimensions | key per dimension from the model; claim **only in the overworld** in v1 (configurable) | the model does not need to be migrated later |
@@ -146,7 +146,7 @@ Dispute
 
 ## 5. The two map layers
 
-### Layer A — The mod's own map (`/nacion mapa`)
+### Layer A — The mod's own map (`/nation map`)
 
 Full-screen GUI rendered by us, depending on nothing:
 - Rendering of chunks colored per nation (the color comes from the claim).
@@ -191,16 +191,16 @@ sent in batches on join and made incremental when things change.
 
 Core mechanic (v1), in two phases:
 
-1. **Open**: `/nacion disputar <chunk>` (chunk where the player is).
+1. **Open**: `/nation dispute <chunk>` (chunk where the player is).
    - Only if the chunk belongs to another nation and there is no open dispute.
    - The `Dispute` is created with a **10 minute** window (configurable).
    - Notification to the defending nation (and to its owner).
 2. **Resolve**:
-   - **Defend**: `/nacion defender <chunk>` → the dispute becomes `DEFENDED`, the claim
+   - **Defend**: `/nation defend <chunk>` → the dispute becomes `DEFENDED`, the claim
      is kept. Optional cost (paying a "deposit" in the nation's treasury).
    - **Expire**: if nobody defends before the `deadline` → `TRANSFERRED`, the chunk goes
      to the challenger's nation.
-   - **Admin**: `/nacion admin resolve <disputeId> keep|transfer` (permission
+   - **Admin**: `/nation admin resolve <disputeId> keep|transfer` (permission
      `modserver.nation.admin`).
 
 Optional mechanic (v2): **sacking** — killing a player of the nation inside its own
@@ -211,21 +211,21 @@ chunk nor one that is already disputed.
 
 ## 7. Commands
 
-Root: `/nacion` (alias `/nation`, `/nac`).
+Root: `/nation` (legacy roots `/nacion`, `/nac`).
 
 | Command | Description |
 |---|---|
-| `/nacion crear <nombre> | creates the nation (1 per player) |
-| `/nacion claim` / `unclaim` | claims/releases the current chunk |
-| `/nacion claim radio <n>` | claims an n×n region (phase 3) |
-| `/nacion info [nombre]` | nation record sheet |
-| `/nacion mapa` | **the mod's map** (Layer A) |
-| `/nacion miembros add|remove|rol <jugador>` | member management |
-| `/nacion color <rgb>` | nation color |
-| `/nacion capital` | sets the capital at the current chunk |
-| `/nacion disputa <chunk>` / `defender <chunk>` | open / defend a dispute |
-| `/nacion lista` | list of the world's nations |
-| `/nacion admin resolve <id> <keep\|transfer>` | manual resolution |
+| `/nation create <name>` | creates the nation (1 per player) |
+| `/nation claim` / `unclaim` | claims/releases the current chunk |
+| `/nation claim radius <n>` | claims an n×n region (phase 3) |
+| `/nation info [name]` | nation record sheet |
+| `/nation map` | **the mod's map** (Layer A) |
+| `/nation members add\|remove\|role <player>` | member management |
+| `/nation color <rgb>` | nation color |
+| `/nation capital` | sets the capital at the current chunk |
+| `/nation dispute <chunk>` / `defend <chunk>` | open / defend a dispute |
+| `/nation list` | list of the world's nations |
+| `/nation admin resolve <id> <keep\|transfer>` | manual resolution |
 
 Permissions (NeoForge permissions API): `modserver.nation.create`, `.claim`,
 `.dispute`, `.admin`, `.map`.
@@ -235,11 +235,11 @@ Permissions (NeoForge permissions API): `modserver.nation.create`, `.claim`,
 | Phase | Content | Verification | Status |
 |---|---|---|---|
 | **0. Base** | NeoForge project, toolchain, QA loop | `tools/smoke.sh` green | ✅ Done |
-| **1. Domain** | `Nation`/`Claim`/`NationRelation`, `NationManager`, `ClaimIndex`, JSON store, `/nacion crear\|claim\|unclaim\|info\|lista\|miembros\|color\|acuerdo` | 8/8 GameTest + bot scenario 8/8 | ✅ **Done** |
-| **2. Own map** | GUI `/nacion mapa` with per-color rendering | client screenshot + visual test | ✅ **Done** |
+| **1. Domain** | `Nation`/`Claim`/`NationRelation`, `NationManager`, `ClaimIndex`, JSON store, `/nation create\|claim\|unclaim\|info\|list\|members\|color\|agreement` | 8/8 GameTest + bot scenario 8/8 | ✅ **Done** |
+| **2. Own map** | GUI `/nation map` with per-color rendering | client screenshot + visual test | ✅ **Done** |
 | **3. Xaero** | `XaeroMapProvider` + packet sync | install Xaero in the dev runtime and see the markers in the screenshot | ✅ **Done** |
 | **4. Disputes** | opening, defense window, transfer, admin | 10 GameTests of the state machine + E2E with two bots | ✅ **Done** |
-| **5. Diplomacy** | war/alliance between nations, `/nacion guerra`, attacks | E2E with two bots | ✅ **Done** |
+| **5. Diplomacy** | war/alliance between nations, `/nation war`, attacks | E2E with two bots | ✅ **Done** |
 | **6. Economy** | daily upkeep, taxes, treasury | config + save test | ✅ **Done** |
 
 ### Status of Phase 1 (implemented)
@@ -255,7 +255,7 @@ Permissions (NeoForge permissions API): `modserver.nation.create`, `.claim`,
   → Persistence: load on server start, save on stop and autosave every 5 min
   if there are changes.
   → Verification: 8 domain GameTests + bot E2E scenario (create -> claim -> info ->
-  lista -> unclaim -> claim) and `tools/smoke.sh` green.
+  list -> unclaim -> claim) and `tools/smoke.sh` green.
 
 Phases 1 and 3 are the value core; 2 is what makes the mod understandable at a glance.
 
@@ -274,8 +274,8 @@ Phases 1 and 3 are the value core; 2 is what makes the mod understandable at a g
   installed) + `XaeroBridge` (publishes third-party waypoints, max 300, with the fixed
   Xaero palette color closest to the nation's RGB). The minimap and the World Map
   share the waypoint system, so the markers show up in both.
-- **`/nacion mapa`** is a **server-side** command: the client would open its own dispatcher
-  and swallow `/nacion` entirely, breaking `crear`, `claim`, etc. The server sends the
+- **`/nation map`** is a **server-side** command: the client would open its own dispatcher
+  and swallow `/nation` entirely, breaking `create`, `claim`, etc. The server sends the
   data and the order to open the screen.
 - **Verification**: `tools/map_check.sh` creates a territory with the bot (nation + 10 chunks
   by teleporting it over RCON) and captures two screenshots from the real client:
@@ -300,8 +300,8 @@ Phases 1 and 3 are the value core; 2 is what makes the mod understandable at a g
 - **Config** (`world/config/modserver-server.toml`): `disputeWindowMinutes` (10),
   `disputeCooldownMinutes` (30) and `disputeChunkCooldownMinutes` (120).
 - **Persistence**: `world/modserver/disputes.json` (same readable schema as the rest).
-- **Commands**: `/nacion disputar [x] [z]`, `/nacion defender [x] [z]`,
-  `/nacion disputas` and `/nacion admin resolve <id> keep|transfer` (op level 2).
+- **Commands**: `/nation dispute [x] [z]`, `/nation defend [x] [z]`,
+  `/nation disputes` and `/nation admin resolve <id> keep|transfer` (op level 2).
   The defending nation receives a chat notice when a dispute is opened. The administrator
   can re-resolve an already defended dispute (their decision does not bind the
   administration), but not one whose chunk has already changed hands.
@@ -311,11 +311,11 @@ Phases 1 and 3 are the value core; 2 is what makes the mod understandable at a g
 
 ### Status of Phase 5 (implemented)
 
-The base (`NationRelation` and `/nacion acuerdo`) already existed since Phase 1; Phase 5 gives
+The base (`NationRelation` and `/nation agreement`) already existed since Phase 1; Phase 5 gives
 it gameplay meaning:
 
-- **Commands**: `/nacion guerra|paz|alianza|pacto <nacion>` (shortcuts of the generic
-  command `/nacion acuerdo <nacion> <tipo>`) and `/nacion atacar [x] [z]`, which declares
+- **Commands**: `/nation war|peace|alliance|pact <nation>` (shortcuts of the generic
+  command `/nation agreement <nation> <type>`) and `/nation attack [x] [z]`, which declares
   war (if it was not already declared) and opens the dispute over that chunk: a single
   order to go from neutrality to conflict.
 - **Effect of war on disputes**: shorter defense window
@@ -324,7 +324,7 @@ it gameplay meaning:
   attacker wipe the map in one blow (the per-chunk cooldown still applies).
 - **Notifications**: the affected nation receives a chat notice when war is declared,
   when an agreement is signed and when one of its chunks is attacked.
-- **Visibility**: `/nacion info` lists your nation's relations and `/nacion lista`
+- **Visibility**: `/nation info` lists your nation's relations and `/nation list`
   marks who is at war with whom.
 - **Verification**: `tools/diplomacy_check.sh` (E2E with two bots: the pact blocks the
   dispute, war opens it with a reduced window) and a GameTest of the war effect.
@@ -378,7 +378,7 @@ The current loop makes it possible to validate all of this without supervision:
   claimed chunk, transferring through an expired dispute, per-player limits, serialization of
   `SavedData`.
 - **mineflayer bot** (`tools/bot/run.js`): real E2E — the bot joins, runs
-  `/nacion crear Testland`, `/nacion claim`, and it is verified with `/nacion info` + RCON.
+  `/nation create Testland`, `/nation claim`, and it is verified with `/nation info` + RCON.
   With two bots, the full dispute scenario.
 - **RCON** (`tools/console.sh`): server inspection and preparation (grant OP, teleport).
 - **Client + screenshot** (`tools/client.sh --auto` + `tools/screenshot.sh`): visual verification
@@ -425,7 +425,7 @@ agreements between nations.
 **Pending decisions (they do not block Phase 2/3):**
 1. Can claims be **transferred** to another nation (donation)? → *no in v1*.
 2. Does **sacking** (killing the owner inside their claim) transfer the chunk? → *proposed in v4*.
-3. Can the capital be **moved** with `/nacion capital`? → *yes, in v2*.
+3. Can the capital be **moved** with `/nation capital`? → *yes, in v2*.
 4. Will there be **taxes/upkeep**? → *v6*.
 5. Mod name shown in `mods.toml` (`displayName`)? → *today "ModServer"*.
 

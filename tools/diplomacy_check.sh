@@ -61,19 +61,19 @@ echo "    chunk claimed by Alfa: $CX, $CZ"
 
 cat > "$WORK/pacto.json" <<JSON
 [
-  { "command": "/nacion crear Beta", "expect": ["Nation Beta created"], "timeout": 20000 },
-  { "command": "/nacion pacto Alfa", "expect": ["Pact agreement signed between Beta and Alfa"], "timeout": 20000 },
-  { "command": "/nacion disputar $CX $CZ", "expect": ["peace agreement"], "timeout": 20000 },
-  { "command": "/nacion info", "expect": ["Alfa with a non-aggression pact"], "timeout": 20000 }
+  { "command": "/nation create Beta", "expect": ["Nation Beta created"], "timeout": 20000 },
+  { "command": "/nation pact Alfa", "expect": ["Pact agreement signed between Beta and Alfa"], "timeout": 20000 },
+  { "command": "/nation dispute $CX $CZ", "expect": ["peace agreement"], "timeout": 20000 },
+  { "command": "/nation info", "expect": ["Alfa with a non-aggression pact"], "timeout": 20000 }
 ]
 JSON
 
 cat > "$WORK/guerra.json" <<JSON
 [
-  { "command": "/nacion guerra Alfa", "expect": ["War agreement signed between Beta and Alfa"], "timeout": 20000 },
-  { "command": "/nacion info", "expect": ["Alfa at war"], "timeout": 20000 },
-  { "command": "/nacion atacar $CX $CZ", "expect": ["Dispute #1 opened"], "timeout": 20000 },
-  { "command": "/nacion info", "expect": ["Alfa at war"], "timeout": 20000 }
+  { "command": "/nation war Alfa", "expect": ["War agreement signed between Beta and Alfa"], "timeout": 20000 },
+  { "command": "/nation info", "expect": ["Alfa at war"], "timeout": 20000 },
+  { "command": "/nation attack $CX $CZ", "expect": ["Dispute #1 opened"], "timeout": 20000 },
+  { "command": "/nation info", "expect": ["Alfa at war"], "timeout": 20000 }
 ]
 JSON
 
@@ -88,11 +88,11 @@ node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/guerra.json" \
   2>&1 | tee "$WORK/guerra.log"
 
 echo "==> [5/5] Checking the state via RCON"
-LIST="$("$MODSERVER_ROOT/tools/console.sh" "nacion lista" || true)"
+LIST="$("$MODSERVER_ROOT/tools/console.sh" "nation list" || true)"
 echo "$LIST" | sed 's/^/    | /'
 check "Alfa appears at war with Beta" "at war with Beta" "$LIST"
 
-DISPUTES="$("$MODSERVER_ROOT/tools/console.sh" "nacion disputas" || true)"
+DISPUTES="$("$MODSERVER_ROOT/tools/console.sh" "nation disputes" || true)"
 echo "$DISPUTES" | sed 's/^/    | /'
 check "the dispute is open" "OPEN" "$DISPUTES"
 check "the dispute is #1" "#1" "$DISPUTES"

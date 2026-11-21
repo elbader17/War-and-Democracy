@@ -15,6 +15,7 @@ import java.util.UUID;
 public final class ClaimIndex {
 
     private final Map<String, Map<Long, Claim>> byDimension = new HashMap<>();
+    private final Map<UUID, Integer> countsByNation = new HashMap<>();
 
     /** Returns the claim of that chunk, or null if it is free. */
     public Claim claimAt(String dimension, int chunkX, int chunkZ) {
@@ -37,6 +38,7 @@ public final class ClaimIndex {
             return false;
         }
         dimensionClaims.put(claim.chunkKey(), claim);
+        countsByNation.merge(claim.nationId(), 1, Integer::sum);
         return true;
     }
 
@@ -46,20 +48,30 @@ public final class ClaimIndex {
         if (dimensionClaims == null) {
             return null;
         }
-        return dimensionClaims.remove(Claim.pack(chunkX, chunkZ));
+        Claim released = dimensionClaims.remove(Claim.pack(chunkX, chunkZ));
+        if (released != null) {
+            decrementCount(released.nationId());
+        }
+        return released;
+    }
+
+    /** Changes the owner of an indexed claim and its economic territory counts together. */
+    public void transfer(Claim claim, UUID newOwner) {
+        if (claimAt(claim.dimension(), claim.chunkX(), claim.chunkZ()) != claim) {
+            throw new IllegalArgumentException("The claim is not indexed");
+        }
+        decrementCount(claim.nationId());
+        claim.setNationId(newOwner);
+        countsByNation.merge(newOwner, 1, Integer::sum);
+    }
+
+    private void decrementCount(UUID nation) {
+        countsByNation.computeIfPresent(nation, (id, count) -> count == 1 ? null : count - 1);
     }
 
     /** Number of chunks owned by a nation (across all dimensions). */
     public int chunkCount(UUID nationId) {
-        int total = 0;
-        for (Map<Long, Claim> dimensionClaims : byDimension.values()) {
-            for (Claim claim : dimensionClaims.values()) {
-                if (claim.nationId().equals(nationId)) {
-                    total++;
-                }
-            }
-        }
-        return total;
+        return countsByNation.getOrDefault(nationId, 0);
     }
 
     /** Number of chunks owned by a nation in one dimension. */
@@ -151,6 +163,7 @@ public final class ClaimIndex {
     /** Replaces the full content (load from disk). */
     public void replaceAll(Collection<Claim> claims) {
         byDimension.clear();
+        countsByNation.clear();
         for (Claim claim : claims) {
             claim(claim);
         }

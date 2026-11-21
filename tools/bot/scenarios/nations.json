@@ -1,10 +1,11 @@
 [
-  { "command": "/nacion info", "expect": ["You do not have a nation"], "timeout": 20000 },
-  { "command": "/nacion crear Testland", "expect": ["Nation Testland created"], "timeout": 20000 },
-  { "command": "/nacion info", "expect": ["Nation Testland", "chunks 0"], "timeout": 20000 },
-  { "command": "/nacion claim", "expect": ["claimed by Testland"], "timeout": 20000 },
-  { "command": "/nacion info", "expect": ["chunks 1"], "timeout": 20000 },
-  { "command": "/nacion lista", "expect": ["Testland"], "timeout": 20000 },
-  { "command": "/nacion unclaim", "expect": ["released"], "timeout": 20000 },
-  { "command": "/nacion claim", "expect": ["claimed by Testland"], "timeout": 20000 }
+  { "command": "/nation info", "expect": ["You do not have a nation"], "timeout": 20000 },
+  { "command": "/nation create Testland", "expect": ["Nation Testland created"], "timeout": 20000 },
+  { "command": "/nation info", "expect": ["Nation Testland", "chunks 0"], "timeout": 20000 },
+  { "command": "/nation claim", "expect": ["claimed by Testland"], "timeout": 20000 },
+  { "command": "/nation map", "expect": ["Territory map", "■ Testland"], "timeout": 20000 },
+  { "command": "/nation info", "expect": ["chunks 1"], "timeout": 20000 },
+  { "command": "/nation list", "expect": ["Testland"], "timeout": 20000 },
+  { "command": "/nation unclaim", "expect": ["released"], "timeout": 20000 },
+  { "command": "/nation claim", "expect": ["claimed by Testland"], "timeout": 20000 }
 ]

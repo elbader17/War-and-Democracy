@@ -7,15 +7,15 @@
 #   1. clean world + dev server
 #   2. three bot nations (cyan, red, green) claim their own territory
 #      (the commands are run as the bots with RCON, so the result is exact)
-#   3. the GUI client joins: it founds its own nation, so the Xaero minimap shows
-#      the nation markers and the chat shows the economy of the nation
+#   3. the GUI client joins and founds its own nation. JourneyMap shows the
+#      territories on its minimap and the chat shows the economy of the nation
 #   4. Beta attacks a chunk of Alfa: the dispute is opened and the defending
 #      nation is warned in the chat
 #   5. the GUI client joins again with the own map of the mod open: the territory
 #      of every nation with its exact colour
 #
 # Screenshots (tools/logs/):
-#   demo-1-minimap.png   in-game view: Xaero minimap with the nation markers + chat
+#   demo-1-minimap.png   in-game view: JourneyMap minimap with the territories + chat
 #   demo-2-nationmap.png the own map of the mod with the territory of every nation
 #   demo-summary.txt     what happened, step by step
 #
@@ -82,9 +82,9 @@ rcon "execute as BetaBot run tp BetaBot -56 64 56" >/dev/null
 rcon "execute as GammaBot run tp GammaBot 56 64 -56" >/dev/null
 sleep 1
 
-rcon "execute as AlfaBot run nacion crear Alfa $ALFA_COLOR" >/dev/null
-rcon "execute as BetaBot run nacion crear Beta $BETA_COLOR" >/dev/null
-rcon "execute as GammaBot run nacion crear Gamma $GAMMA_COLOR" >/dev/null
+rcon "execute as AlfaBot run nation create Alfa $ALFA_COLOR" >/dev/null
+rcon "execute as BetaBot run nation create Beta $BETA_COLOR" >/dev/null
+rcon "execute as GammaBot run nation create Gamma $GAMMA_COLOR" >/dev/null
 sleep 2
 
 # Territory: Alfa to the east, Beta to the west, Gamma to the south.
@@ -96,7 +96,7 @@ claim_area() {
     set -- $point
     rcon "execute as $bot run tp $bot $1 $2 $3" >/dev/null
     sleep 0.7
-    rcon "execute as $bot run nacion claim" >/dev/null
+    rcon "execute as $bot run nation claim" >/dev/null
     sleep 0.7
   done
 }
@@ -108,7 +108,7 @@ claim_area BetaBot "-56 64 56" "-72 64 56" "-88 64 56" "-56 64 72" "-72 64 72" "
 claim_area GammaBot "56 64 -56" "72 64 -56" "88 64 -56" "56 64 -72" "72 64 -72" "88 64 -72"
 
 say "    nations:"
-rcon "nacion lista" | sed 's/^/      /' | tee -a "$DEMO_LOG"
+rcon "nation list" | sed 's/^/      /' | tee -a "$DEMO_LOG"
 
 say "==> [3/6] The GUI client joins (its window opens under WSLg)"
 rm -f "$MODSERVER_ROOT/run/screenshots/modserver.png"
@@ -121,9 +121,9 @@ for i in $(seq 1 120); do
 done
 
 say "==> [4/6] Beta attacks a chunk of Alfa (the dispute is opened and warned)"
-rcon "execute as BetaBot run nacion atacar 3 3" | sed 's/^/      /' | tee -a "$DEMO_LOG"
+rcon "execute as BetaBot run nation attack 3 3" | sed 's/^/      /' | tee -a "$DEMO_LOG"
 sleep 3
-rcon "nacion disputas" | sed 's/^/      /' | tee -a "$DEMO_LOG"
+rcon "nation disputes" | sed 's/^/      /' | tee -a "$DEMO_LOG"
 
 for i in $(seq 1 120); do
   [ -f "$MODSERVER_ROOT/run/screenshots/modserver.png" ] && break
@@ -153,13 +153,13 @@ say "==> [6/6] Summary"
   echo "=========================="
   echo
   echo "Nations:"
-  rcon "nacion lista" | sed 's/^\[nacion\] /  /'
+  rcon "nation list" | sed 's/^\[nation\] /  /'
   echo
   echo "Disputes:"
-  rcon "nacion disputas" | sed 's/^\[nacion\] /  /'
+  rcon "nation disputes" | sed 's/^\[nation\] /  /'
   echo
   echo "Screenshots:"
-  echo "  tools/logs/demo-1-minimap.png   in-game: Xaero minimap with the nation markers + chat"
+  echo "  tools/logs/demo-1-minimap.png   in-game: JourneyMap minimap with the territories + chat"
   echo "  tools/logs/demo-2-nationmap.png the own map of the mod with the territory colours"
 } > "$SUMMARY"
 cat "$SUMMARY" | tee -a "$DEMO_LOG"

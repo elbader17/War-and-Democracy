@@ -48,15 +48,15 @@ async function main () {
   log(`connected as ${bot.username}`)
 
   // The server chat is printed: it is the only way to see why a command
-  // (/nacion crear, /nacion claim) fails without checking the server log.
+  // (/nation create, /nation claim) fails without checking the server log.
   bot.on('message', (msg) => {
     const text = msg.toString()
-    if (text.includes('[nacion]')) log(`server: ${text}`)
+    if (text.includes('[nation]')) log(`server: ${text}`)
   })
 
   const create = args.color
-    ? `/nacion crear ${args.nation} ${args.color}`
-    : `/nacion crear ${args.nation}`
+    ? `/nation create ${args.nation} ${args.color}`
+    : `/nation create ${args.nation}`
   bot.chat(create)
   await sleep(3000)
 
@@ -66,7 +66,7 @@ async function main () {
     const key = `${Math.floor(pos.x / 16)},${Math.floor(pos.z / 16)}`
     if (key !== lastChunk) {
       lastChunk = key
-      bot.chat('/nacion claim')
+      bot.chat('/nation claim')
       log(`claiming chunk ${key}`)
     }
   })

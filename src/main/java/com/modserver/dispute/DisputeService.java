@@ -74,6 +74,12 @@ public final class DisputeService {
      */
     public Outcome open(UUID challengerNation, String dimension, int chunkX, int chunkZ,
                         long gameTime, Rules rules) {
+        return open(challengerNation, dimension, chunkX, chunkZ, gameTime, rules, false);
+    }
+
+    /** A paid attack can declare war as part of successfully opening the dispute. */
+    public Outcome open(UUID challengerNation, String dimension, int chunkX, int chunkZ,
+                        long gameTime, Rules rules, boolean declareWar) {
         Nation challenger = nations.byId(challengerNation).orElse(null);
         if (challenger == null) {
             return Outcome.fail("Your nation no longer exists");
@@ -99,34 +105,43 @@ public final class DisputeService {
         }
 
         boolean atWar = defender != null
-                && challenger.relationWith(defender.id()) == NationRelation.WAR;
+                && (declareWar || challenger.relationWith(defender.id()) == NationRelation.WAR);
         long windowTicks = atWar ? rules.warWindowTicks() : rules.windowTicks();
-        long nationCooldown = (atWar && rules.warIgnoresCooldown())
-                ? 0L : rules.nationCooldownTicks();
-
-        if (nationCooldown > 0) {
-            long last = lastDisputeByNation(challengerNation);
-            if (last >= 0 && gameTime - last < nationCooldown) {
-                long remaining = (nationCooldown - (gameTime - last)) / 20L;
-                return Outcome.fail("Your nation must wait " + remaining
-                        + " s before opening another dispute");
-            }
+        long nationWait = nationWaitTicks(challengerNation, gameTime, rules, atWar);
+        if (nationWait > 0) {
+            return Outcome.fail("Your nation must wait " + (nationWait + 19) / 20
+                    + " s before opening another dispute");
         }
-        if (rules.chunkCooldownTicks() > 0) {
-            long last = lastDisputeByChunk(dimension, chunkX, chunkZ);
-            if (last >= 0 && gameTime - last < rules.chunkCooldownTicks()) {
-                long remaining = (rules.chunkCooldownTicks() - (gameTime - last)) / 20L;
-                return Outcome.fail("That chunk has a recent dispute: wait " + remaining + " s");
-            }
+        long chunkWait = chunkWaitTicks(dimension, chunkX, chunkZ, gameTime, rules);
+        if (chunkWait > 0) {
+            return Outcome.fail("That chunk has a recent dispute: wait " + (chunkWait + 19) / 20 + " s");
         }
 
         long deadline = gameTime + windowTicks;
         Dispute dispute = new Dispute(disputes.nextId(), dimension, chunkX, chunkZ,
                 challengerNation, claim.nationId(), gameTime, deadline);
         disputes.add(dispute);
+        if (declareWar && defender != null) {
+            challenger.setRelation(defender.id(), NationRelation.WAR);
+            defender.setRelation(challenger.id(), NationRelation.WAR);
+        }
         String extra = atWar ? " (at war: shorter window)" : "";
         return Outcome.ok("Dispute #" + dispute.id() + " opened over chunk "
                 + chunkX + ", " + chunkZ + extra, dispute);
+    }
+
+    public long nationWaitTicks(UUID nation, long now, Rules rules, boolean atWar) {
+        if (rules.nationCooldownTicks() <= 0 || (atWar && rules.warIgnoresCooldown())) return 0;
+        return remainingWait(lastDisputeByNation(nation), now, rules.nationCooldownTicks());
+    }
+
+    public long chunkWaitTicks(String dimension, int x, int z, long now, Rules rules) {
+        if (rules.chunkCooldownTicks() <= 0) return 0;
+        return remainingWait(lastDisputeByChunk(dimension, x, z), now, rules.chunkCooldownTicks());
+    }
+
+    private static long remainingWait(long last, long now, long cooldown) {
+        return last < 0 ? 0 : Math.max(0, cooldown - (now - last));
     }
 
     // ------------------------------------------------------------------- defense
@@ -178,7 +193,7 @@ public final class DisputeService {
                 resolved.add(dispute);
                 continue;
             }
-            claim.setNationId(dispute.challengerNationId());
+            claims.transfer(claim, dispute.challengerNationId());
             dispute.setStatus(DisputeStatus.TRANSFERRED);
             dispute.setResolvedAt(gameTime);
             dispute.setResolvedBy("expiration");
@@ -227,7 +242,7 @@ public final class DisputeService {
             disputes.reindex(dispute);
             return Outcome.ok("Dispute #" + id + " cancelled: the chunk was no longer claimed", dispute);
         }
-        claim.setNationId(dispute.challengerNationId());
+        claims.transfer(claim, dispute.challengerNationId());
         dispute.setStatus(DisputeStatus.TRANSFERRED);
         dispute.setResolvedAt(gameTime);
         dispute.setResolvedBy("admin");

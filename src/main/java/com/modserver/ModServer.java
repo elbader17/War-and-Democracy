@@ -9,9 +9,18 @@ import com.modserver.gametest.ModServerDisputeGameTests;
 import com.modserver.gametest.ModServerEconomyGameTests;
 import com.modserver.gametest.ModServerGameTests;
 import com.modserver.item.ModServerItems;
+import com.modserver.hud.NationSidebar;
+import com.modserver.hud.WarHud;
+import com.modserver.npc.RivalNpc;
+import com.modserver.network.BorderedMapPayload;
+import com.modserver.network.DisputeMapPayload;
 import com.modserver.network.NationMapPayload;
 import com.modserver.network.OpenMapPayload;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.repository.Pack;
+import net.minecraft.server.packs.repository.PackSource;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
@@ -20,6 +29,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.AddPackFindersEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -52,6 +62,8 @@ public class ModServer {
     private static NationService nations = new NationService();
 
     private int ticksSinceSave;
+    private final NationSidebar nationSidebar = new NationSidebar();
+    private final WarHud warHud = new WarHud();
 
     /** Creates a ResourceLocation of the mod: {@code ModServer.id("cog")} -> {@code modserver:cog}. */
     public static ResourceLocation id(String path) {
@@ -76,9 +88,17 @@ public class ModServer {
         NeoForge.EVENT_BUS.addListener(this::onServerStopping);
         NeoForge.EVENT_BUS.addListener(this::onServerTick);
         NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerChangedDimensionEvent event) -> {
+            if (event.getEntity() instanceof ServerPlayer player) sendMap(player);
+        });
+        NeoForge.EVENT_BUS.addListener(RivalNpc::interact);
         // RegisterGameTestsEvent and GatherDataEvent go on the mod bus.
         modBus.addListener(this::registerGameTests);
         modBus.addListener(ModServerDataGen::gatherData);
+        // Recipes for custom items cannot be decoded by vanilla clients.
+        modBus.addListener((AddPackFindersEvent event) -> event.addPackFinders(
+                id("cog_demo"), PackType.SERVER_DATA, Component.literal("Cog demo"),
+                PackSource.FEATURE, false, Pack.Position.TOP));
     }
 
     private void registerCommands(RegisterCommandsEvent event) {
@@ -107,6 +127,8 @@ public class ModServer {
     }
 
     private void onServerStopping(ServerStoppingEvent event) {
+        nationSidebar.clear();
+        warHud.clear();
         try {
             nations.save();
             ModServerCommands.LOGGER.info("Nations saved in {}", nations.dataDirectory());
@@ -132,6 +154,8 @@ public class ModServer {
         // Resend of the map data when something changes (claims, nations, agreements).
         if (event.getServer().getTickCount() % MAP_SYNC_INTERVAL_TICKS == 0) {
             syncMapToAll(event.getServer());
+            nationSidebar.update(event.getServer(), nations);
+            warHud.update(event.getServer(), nations);
         }
 
         if (!nations.isDirty()) {
@@ -181,7 +205,26 @@ public class ModServer {
             return;
         }
         try {
-            PacketDistributor.sendToPlayer(player, nations.buildMapPayload(player));
+            NationMapPayload map = nations.buildMapPayload(player);
+            boolean showDisputes = NetworkRegistry.hasChannel(player.connection, DisputeMapPayload.TYPE.id());
+            if (showDisputes || NetworkRegistry.hasChannel(player.connection, BorderedMapPayload.TYPE.id())) {
+                String dimension = NationService.dimensionId(player);
+                var bordered = BorderedMapPayload.from(map, (x, z) -> {
+                    var claim = nations.claims().claimAt(dimension, x, z);
+                    return claim == null ? null : claim.nationId();
+                });
+                if (showDisputes) {
+                    var battles = nations.disputes().open().stream().filter(d -> dimension.equals(d.dimension()))
+                            .map(d -> new DisputeMapPayload.Battle(d.chunkX(), d.chunkZ(),
+                                    nations.nameOf(d.challengerNationId()), nations.nameOf(d.defenderNationId()))).toList();
+                    PacketDistributor.sendToPlayer(player, new DisputeMapPayload(bordered,
+                            player.level().dimension().location(), battles));
+                } else {
+                    PacketDistributor.sendToPlayer(player, bordered);
+                }
+            } else {
+                PacketDistributor.sendToPlayer(player, map);
+            }
         } catch (RuntimeException e) {
             ModServerCommands.LOGGER.warn("Could not send the map to " + player.getGameProfile().getName(), e);
         }

@@ -3,6 +3,7 @@ package com.modserver.client;
 import com.modserver.client.map.JourneyMapProvider;
 import com.modserver.client.map.JourneyMapScreenOpener;
 import com.modserver.client.map.NationMapScreen;
+import com.modserver.client.map.NationMapData;
 import com.modserver.client.map.XaeroMapProvider;
 import com.modserver.command.ModServerCommands;
 import com.mojang.brigadier.context.CommandContext;
@@ -57,6 +58,7 @@ public final class ModServerClientCommands {
 
     private static int pendingScreenshotTicks = -1;
     private static int pendingOpenMapTicks = -1;
+    private static int pendingTerrainMapTicks = -1;
     private static String[] pendingCommands = new String[0];
     private static int pendingCommandTicks = -1;
     private static boolean autoJoinPending;
@@ -73,6 +75,9 @@ public final class ModServerClientCommands {
 
     @SubscribeEvent
     public static void onLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
+        if (Boolean.getBoolean(JourneyMapScreenOpener.AUTO_OPEN_PROPERTY)) {
+            pendingTerrainMapTicks = Integer.getInteger(AUTO_OPEN_MAP_DELAY_PROPERTY, 60);
+        }
         if (Boolean.getBoolean(AUTO_SCREENSHOT_PROPERTY)) {
             pendingScreenshotTicks = Integer.getInteger(AUTO_SCREENSHOT_DELAY_PROPERTY, 100);
         }
@@ -87,16 +92,15 @@ public final class ModServerClientCommands {
     }
 
     @SubscribeEvent
+    public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        NationMapData.clear();
+    }
+
+    @SubscribeEvent
     public static void onTick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
 
-        // M opens the nation map of the mod (the server sends the data and asks
-        // the client to open the screen).
-        if (ModServerKeyBindings.pollMapKey()) {
-            // Xaero may open its own full screen map with the same key: close it
-            // so the map of the mod is the visible one.
-            ModServerKeyBindings.closeForeignMaps(mc);
-        }
+        ModServerKeyBindings.pollMapKey(mc);
 
         // Retry publishing markers to third party minimaps: Xaero may initialize
         // after the map data has arrived.
@@ -106,8 +110,8 @@ public final class ModServerClientCommands {
         JourneyMapProvider.retry();
 
         // Automatic opening of the full screen map of JourneyMap (captures).
-        if (Boolean.getBoolean(JourneyMapScreenOpener.AUTO_OPEN_PROPERTY) && mc.player != null) {
-            JourneyMapScreenOpener.tick(mc);
+        if (pendingTerrainMapTicks >= 0 && mc.player != null && pendingTerrainMapTicks-- == 0) {
+            JourneyMapScreenOpener.open(mc);
         }
 
         // Automatic connection to the development server (vanilla quickPlay never

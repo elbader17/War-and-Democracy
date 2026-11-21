@@ -29,7 +29,7 @@ public final class ModServerDataGen {
     public static void gatherData(GatherDataEvent event) {
         if (event.includeServer()) {
             event.addProvider(new ModServerRecipeProvider(
-                    event.getGenerator().getPackOutput(),
+                    event.getGenerator().getPackOutput("cog_demo"),
                     event.getLookupProvider()));
         }
     }

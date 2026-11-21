@@ -8,9 +8,7 @@ import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Nation map of the mod: full screen showing the real territory.
@@ -32,9 +30,11 @@ public class NationMapScreen extends Screen {
     private static final int MIN_CELL = 3;
     private static final int MAX_CELL = 24;
 
+    private static final int BORDER_SHADOW = 0xFF24272C;
+
     private double centerChunkX;
     private double centerChunkZ;
-    private int cellSize = 8;
+    private int cellSize = 14;
 
     private double dragStartX;
     private double dragStartY;
@@ -115,11 +115,11 @@ public class NationMapScreen extends Screen {
     private void drawTopBar(GuiGraphics graphics, NationMapPayload.NationView[] nations,
                             NationMapPayload.ClaimView[] claims) {
         graphics.fill(0, 0, width, TOP_BAR, 0xC0000000);
-        graphics.drawString(font, "Nation map", 6, 5, 0xFFFFFF);
-        String info = nations.length + " nations | " + claims.length + " visible chunks";
+        graphics.drawString(font, getTitle(), 6, 5, 0xFFFFFF);
+        Component info = Component.translatable("screen.modserver.nation_map.counts", nations.length, claims.length);
         graphics.drawString(font, info, width - font.width(info) - 6, 5, 0xB0B0B0);
 
-        String hint = "Wheel: zoom | Drag: move | Panel: click to go to capital | ESC: close";
+        Component hint = Component.translatable("screen.modserver.nation_map.controls");
         graphics.fill(0, height - 12, width, height, 0xC0000000);
         graphics.drawString(font, hint, 6, height - 10, 0x909090);
     }
@@ -133,14 +133,16 @@ public class NationMapScreen extends Screen {
 
         graphics.fill(left, top, right, bottom, 0xFF101418);
 
-        if (nations.length == 0) {
-            graphics.drawCenteredString(font, "Waiting for server data...", (left + right) / 2,
+        if (nations.length == 0 && NationMapData.battles().isEmpty()) {
+            graphics.drawCenteredString(font, Component.translatable("screen.modserver.nation_map.empty"), (left + right) / 2,
                     (top + bottom) / 2 - 6, 0x808080);
             return;
         }
 
         double originX = left + (right - left) / 2.0 - centerChunkX * cellSize;
         double originZ = top + (bottom - top) / 2.0 - centerChunkZ * cellSize;
+
+        graphics.enableScissor(left, top, right, bottom);
 
         // Grid every 8 chunks.
         int gridColor = 0x20FFFFFF;
@@ -158,7 +160,6 @@ public class NationMapScreen extends Screen {
         // Territories: every chunk is painted, and the border of the whole
         // territory is drawn on top, so the land is seen as one shape and not
         // as a cloud of isolated squares.
-        Set<Long> owned = new HashSet<>();
         for (NationMapPayload.ClaimView claim : claims) {
             if (claim.nationIndex() < 0 || claim.nationIndex() >= nations.length) {
                 continue;
@@ -174,33 +175,20 @@ public class NationMapScreen extends Screen {
                 continue;
             }
             graphics.fill(px, py, px + cellSize, py + cellSize, fillColor);
-            owned.add(claimKey(claim.nationIndex(), claim.chunkX(), claim.chunkZ()));
         }
 
-        // Border of each territory: the edges that are not shared with another
-        // chunk of the same nation.
-        for (NationMapPayload.ClaimView claim : claims) {
-            if (claim.nationIndex() < 0 || claim.nationIndex() >= nations.length) {
-                continue;
-            }
-            NationMapPayload.NationView nation = nations[claim.nationIndex()];
-            int px = (int) (originX + claim.chunkX() * cellSize);
-            int py = (int) (originZ + claim.chunkZ() * cellSize);
-            if (px + cellSize < left || px > right || py + cellSize < top || py > bottom) {
-                continue;
-            }
-            int border = brighten(nation.color() & 0xFFFFFF);
-            if (!owned.contains(claimKey(claim.nationIndex(), claim.chunkX() - 1, claim.chunkZ()))) {
-                graphics.fill(px, py, px + cellSize, py + 2, border);
-            }
-            if (!owned.contains(claimKey(claim.nationIndex(), claim.chunkX() + 1, claim.chunkZ()))) {
-                graphics.fill(px, py + cellSize - 2, px + cellSize, py + cellSize, border);
-            }
-            if (!owned.contains(claimKey(claim.nationIndex(), claim.chunkX(), claim.chunkZ() - 1))) {
-                graphics.fill(px, py, px + 2, py + cellSize, border);
-            }
-            if (!owned.contains(claimKey(claim.nationIndex(), claim.chunkX(), claim.chunkZ() + 1))) {
-                graphics.fill(px + cellSize - 2, py, px + cellSize, py + cellSize, border);
+        // Paint all casings first so adjoining segments meet without dark seams.
+        drawBorders(graphics, originX, originZ, true);
+        drawBorders(graphics, originX, originZ, false);
+
+        for (var battle : NationMapData.battles()) {
+            int x = (int) Math.floor(originX + battle.x() * cellSize);
+            int y = (int) Math.floor(originZ + battle.z() * cellSize);
+            if (x + cellSize < left || x > right || y + cellSize < top || y > bottom) continue;
+            graphics.fill(x, y, x + cellSize, y + cellSize, 0xFFE23E4D);
+            for (int k = 1; k < cellSize - 1; k++) {
+                graphics.fill(x + k, y + k, x + k + 1, y + k + 1, 0xFFFFF1DA);
+                graphics.fill(x + cellSize - 1 - k, y + k, x + cellSize - k, y + k + 1, 0xFFFFF1DA);
             }
         }
 
@@ -223,6 +211,28 @@ public class NationMapScreen extends Screen {
             graphics.fill(px - 3, py - 1, px + 4, py + 2, 0xFFFF5555);
             graphics.fill(px - 1, py - 3, px + 2, py + 4, 0xFFFF5555);
         }
+        graphics.disableScissor();
+    }
+
+    private void drawBorders(GuiGraphics graphics, double originX, double originZ, boolean casing) {
+        for (var edge : NationMapData.borders()) {
+            int x = (int) Math.floor(originX + edge.x() * cellSize);
+            int y = (int) Math.floor(originZ + edge.z() * cellSize);
+            int stroke = cellSize >= 10 ? 2 : 1;
+            int before = stroke / 2;
+            int after = stroke - before;
+            if (casing && cellSize >= 6) {
+                before++;
+                after++;
+            }
+            int color = casing ? BORDER_SHADOW : edge.color();
+            int length = edge.length() * cellSize;
+            if (edge.horizontal()) {
+                graphics.fill(x - before, y - before, x + length + after, y + after, color);
+            } else {
+                graphics.fill(x - before, y - before, x + after, y + length + after, color);
+            }
+        }
     }
 
     private void drawPanel(GuiGraphics graphics, NationMapPayload.NationView[] nations,
@@ -234,10 +244,10 @@ public class NationMapScreen extends Screen {
 
         int y = TOP_BAR + 6;
         for (NationMapPayload.NationView nation : sorted) {
-            if (y > height - 24) {
+            if (y > height - 62) {
                 break;
             }
-            graphics.fill(6, y, 14, y + 8, nation.color() & 0xFFFFFF);
+            graphics.fill(6, y, 14, y + 8, 0xFF000000 | (nation.color() & 0xFFFFFF));
             graphics.drawString(font, nation.name(), 20, y, 0xFFFFFF);
             String chunks = NationMapData.chunkCount(indexOf(nations, nation)) + "";
             graphics.drawString(font, chunks, PANEL_WIDTH - 6 - font.width(chunks), y, 0x9A9A9A);
@@ -248,6 +258,9 @@ public class NationMapScreen extends Screen {
             }
             y += 11;
         }
+        drawLegendEntry(graphics, height - 52, 0xFFE23E4D, "battle");
+        drawLegendEntry(graphics, height - 39, NationMapData.Border.INTERNATIONAL_COLOR, "shared");
+        drawLegendEntry(graphics, height - 26, NationMapData.Border.OUTER_COLOR, "outer");
     }
 
     private static int indexOf(NationMapPayload.NationView[] nations, NationMapPayload.NationView nation) {
@@ -259,28 +272,22 @@ public class NationMapScreen extends Screen {
         return -1;
     }
 
-    /** Key of a chunk inside a nation: it identifies "this chunk of this nation". */
-    private static long claimKey(int nationIndex, int chunkX, int chunkZ) {
-        return ((long) nationIndex << 32)
-                | ((chunkX & 0xFFFFL) << 16)
-                | (chunkZ & 0xFFFFL);
-    }
-
-    /** Blends a color with white: used for the border of the territories. */
-    private static int brighten(int rgb) {
-        int r = (rgb >> 16) & 0xFF;
-        int g = (rgb >> 8) & 0xFF;
-        int b = rgb & 0xFF;
-        r = r + (255 - r) / 2;
-        g = g + (255 - g) / 2;
-        b = b + (255 - b) / 2;
-        return (r << 16) | (g << 8) | b;
+    private void drawLegendEntry(GuiGraphics graphics, int y, int color, String key) {
+        graphics.fill(6, y + 2, 17, y + 6, BORDER_SHADOW);
+        graphics.fill(6, y + 3, 17, y + 5, color);
+        graphics.drawString(font, Component.translatable("screen.modserver.nation_map." + key), 21, y, 0xFFFFFF);
     }
 
     // ------------------------------------------------------------------ events
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && mouseX < PANEL_WIDTH) {
+        if (button == 1 && mouseX >= PANEL_WIDTH && mouseY >= TOP_BAR && mouseY < height - 12 && TerritoryScreen.supported()) {
+            int x = (int) Math.floor(centerChunkX + (mouseX - PANEL_WIDTH - (width - PANEL_WIDTH) / 2.0) / cellSize);
+            int z = (int) Math.floor(centerChunkZ + (mouseY - TOP_BAR - (height - 12 - TOP_BAR) / 2.0) / cellSize);
+            TerritoryScreen.open(NationMapData.dimension().location(), x, z);
+            return true;
+        }
+        if (button == 0 && mouseX < PANEL_WIDTH && mouseY >= TOP_BAR + 6 && mouseY < height - 44) {
             NationMapPayload.NationView[] nations = NationMapData.nations();
             List<NationMapPayload.NationView> sorted = new ArrayList<>(List.of(nations));
             sorted.sort(Comparator.comparingInt(NationMapPayload.NationView::chunkCount).reversed());

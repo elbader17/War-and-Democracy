@@ -6,6 +6,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.modserver.NationService;
+import com.modserver.ServerLanguage;
 import com.modserver.ModServer;
 import com.modserver.dispute.Dispute;
 import com.modserver.economy.EconomyRules;
@@ -15,6 +16,7 @@ import com.modserver.nation.Nation;
 import com.modserver.nation.NationRelation;
 import com.modserver.nation.NationRole;
 import com.modserver.network.OpenMapPayload;
+import com.modserver.npc.RivalNpc;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -25,120 +27,120 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Nations commands: {@code /nacion ...}
+ * Nations commands: {@code /nation ...}
  *
- * <p>All the messages are prefixed with {@code [nacion]} so that they can be told
+ * <p>All the messages are prefixed with {@code [nation]} so that they can be told
  * apart from the normal chat and the bot can verify them.</p>
  */
 public final class NationCommands {
 
-    public static final String PREFIX = "[nacion]";
+    public static final String PREFIX = "[nation]";
 
     private NationCommands() {
     }
 
-    /**
-     * Registers the nation commands under their three names.
-     *
-     * <p>{@code /nacion} is the historic name and the one used in the docs; {@code /nation}
-     * and {@code /nac} are the English aliases.</p>
-     */
+    /** The original spellings remain available to existing players and integrations. */
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(rootCommand("nacion"));
-        dispatcher.register(rootCommand("nation"));
-        dispatcher.register(rootCommand("nac"));
+        dispatcher.register(rootCommand("nation", true));
+        for (String alias : new String[]{"nacion", "nation", "nac"}) {
+            dispatcher.register(rootCommand(alias, false));
+        }
     }
 
     /** Builds the whole command tree under the given root name. */
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack>
-    rootCommand(String name) {
+    rootCommand(String name, boolean english) {
         return Commands.literal(name)
                 .requires(source -> source.hasPermission(0))
-                .then(Commands.literal("crear")
-                        .then(Commands.argument("nombre", StringArgumentType.word())
-                                .executes(ctx -> create(ctx, StringArgumentType.getString(ctx, "nombre"),
+                .then(Commands.literal(english ? "create" : "crear")
+                        .then(Commands.argument("name", StringArgumentType.word())
+                                .executes(ctx -> create(ctx, StringArgumentType.getString(ctx, "name"),
                                         0x55FFFF))
                                 .then(Commands.argument("color", IntegerArgumentType.integer())
                                         .executes(ctx -> create(ctx,
-                                                StringArgumentType.getString(ctx, "nombre"),
+                                                StringArgumentType.getString(ctx, "name"),
                                                 IntegerArgumentType.getInteger(ctx, "color"))))))
                 .then(Commands.literal("claim").executes(NationCommands::claim))
                 .then(Commands.literal("unclaim").executes(NationCommands::unclaim))
-                .then(Commands.literal("mapa").executes(NationCommands::mapa))
+                .then(Commands.literal(english ? "map" : "mapa").executes(NationCommands::openMap)
+                        .then(MapTerritoryCommand.branch(english ? "territory" : "territorio", english, false))
+                        .then(MapTerritoryCommand.branch(english ? "select" : "seleccionar", english, true)))
                 .then(Commands.literal("info").executes(NationCommands::info))
-                .then(Commands.literal("lista").executes(NationCommands::list))
-                .then(Commands.literal("miembros")
+                .then(Commands.literal(english ? "list" : "lista").executes(NationCommands::list))
+                .then(Commands.literal(english ? "members" : "miembros")
                         .then(Commands.literal("add")
-                                .then(Commands.argument("jugador", StringArgumentType.word())
-                                        .executes(ctx -> addMember(ctx, StringArgumentType.getString(ctx, "jugador")))))
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .executes(ctx -> addMember(ctx, StringArgumentType.getString(ctx, "player")))))
                         .then(Commands.literal("remove")
-                                .then(Commands.argument("jugador", StringArgumentType.word())
+                                .then(Commands.argument("player", StringArgumentType.word())
                                         .executes(ctx -> removeMember(ctx,
-                                                StringArgumentType.getString(ctx, "jugador"))))))
+                                                StringArgumentType.getString(ctx, "player"))))))
                 .then(Commands.literal("color")
                         .then(Commands.argument("color", IntegerArgumentType.integer(0, 0xFFFFFF))
                                 .executes(ctx -> setColor(ctx, IntegerArgumentType.getInteger(ctx, "color")))))
-                .then(Commands.literal("acuerdo")
-                        .then(Commands.argument("nacion", StringArgumentType.word())
-                                .then(Commands.argument("tipo", StringArgumentType.word())
+                .then(Commands.literal(english ? "agreement" : "acuerdo")
+                        .then(Commands.argument("nation", StringArgumentType.word())
+                                .then(Commands.argument("type", StringArgumentType.word())
                                         .executes(ctx -> agreement(ctx,
-                                                StringArgumentType.getString(ctx, "nacion"),
-                                                StringArgumentType.getString(ctx, "tipo"))))))
-                .then(Commands.literal("disputar")
+                                                StringArgumentType.getString(ctx, "nation"),
+                                                StringArgumentType.getString(ctx, "type"))))))
+                .then(Commands.literal(english ? "dispute" : "disputar")
                         .executes(ctx -> dispute(ctx, null, null))
                         .then(Commands.argument("x", IntegerArgumentType.integer())
                                 .then(Commands.argument("z", IntegerArgumentType.integer())
                                         .executes(ctx -> dispute(ctx,
                                                 IntegerArgumentType.getInteger(ctx, "x"),
                                                 IntegerArgumentType.getInteger(ctx, "z"))))))
-                .then(Commands.literal("defender")
+                .then(Commands.literal(english ? "defend" : "defender")
                         .executes(ctx -> defend(ctx, null, null))
                         .then(Commands.argument("x", IntegerArgumentType.integer())
                                 .then(Commands.argument("z", IntegerArgumentType.integer())
                                         .executes(ctx -> defend(ctx,
                                                 IntegerArgumentType.getInteger(ctx, "x"),
                                                 IntegerArgumentType.getInteger(ctx, "z"))))))
-                .then(Commands.literal("economia")
+                .then(Commands.literal(english ? "economy" : "economia")
                         .executes(NationCommands::economy)
-                        .then(Commands.literal("invertir")
-                                .then(Commands.argument("tipo", StringArgumentType.word())
+                        .then(Commands.literal(english ? "invest" : "invertir")
+                                .then(Commands.argument("type", StringArgumentType.word())
                                         .executes(ctx -> invest(ctx,
-                                                StringArgumentType.getString(ctx, "tipo"))))))
-                .then(Commands.literal("defensa")
+                                                StringArgumentType.getString(ctx, "type"))))))
+                .then(Commands.literal(english ? "defense" : "defensa")
                         .executes(NationCommands::defense)
-                        .then(Commands.literal("pagar").executes(NationCommands::payDefense)))
-                .then(Commands.literal("disputas").executes(NationCommands::disputes))
-                .then(Commands.literal("guerra")
-                        .then(Commands.argument("nacion", StringArgumentType.word())
-                                .executes(ctx -> agreement(ctx, StringArgumentType.getString(ctx, "nacion"),
+                        .then(Commands.literal(english ? "pay" : "pagar").executes(NationCommands::payDefense)))
+                .then(Commands.literal(english ? "disputes" : "disputas").executes(NationCommands::disputes))
+                .then(Commands.literal(english ? "war" : "guerra")
+                        .then(Commands.argument("nation", StringArgumentType.word())
+                                .executes(ctx -> agreement(ctx, StringArgumentType.getString(ctx, "nation"),
                                         "war"))))
-                .then(Commands.literal("paz")
-                        .then(Commands.argument("nacion", StringArgumentType.word())
-                                .executes(ctx -> agreement(ctx, StringArgumentType.getString(ctx, "nacion"),
+                .then(Commands.literal(english ? "peace" : "paz")
+                        .then(Commands.argument("nation", StringArgumentType.word())
+                                .executes(ctx -> agreement(ctx, StringArgumentType.getString(ctx, "nation"),
                                         "neutral"))))
-                .then(Commands.literal("alianza")
-                        .then(Commands.argument("nacion", StringArgumentType.word())
-                                .executes(ctx -> agreement(ctx, StringArgumentType.getString(ctx, "nacion"),
+                .then(Commands.literal(english ? "alliance" : "alianza")
+                        .then(Commands.argument("nation", StringArgumentType.word())
+                                .executes(ctx -> agreement(ctx, StringArgumentType.getString(ctx, "nation"),
                                         "ally"))))
-                .then(Commands.literal("pacto")
-                        .then(Commands.argument("nacion", StringArgumentType.word())
-                                .executes(ctx -> agreement(ctx, StringArgumentType.getString(ctx, "nacion"),
+                .then(Commands.literal(english ? "pact" : "pacto")
+                        .then(Commands.argument("nation", StringArgumentType.word())
+                                .executes(ctx -> agreement(ctx, StringArgumentType.getString(ctx, "nation"),
                                         "pact"))))
-                .then(Commands.literal("atacar")
+                .then(Commands.literal(english ? "attack" : "atacar")
                         .executes(ctx -> attack(ctx, null, null))
                         .then(Commands.argument("x", IntegerArgumentType.integer())
                                 .then(Commands.argument("z", IntegerArgumentType.integer())
                                         .executes(ctx -> attack(ctx,
                                                 IntegerArgumentType.getInteger(ctx, "x"),
                                                 IntegerArgumentType.getInteger(ctx, "z"))))))
+                .then(RivalNpc.interactionCommands(english))
                 .then(adminCommand());
     }
 
-    /** Admin subcommand: {@code /nacion admin resolve <id> keep|transfer}. */
+    /** Admin subcommand: {@code /nation admin resolve <id> keep|transfer}. */
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack>
     adminCommand() {
         var admin = Commands.literal("admin");
         admin.requires(source -> source.hasPermission(2));
+        admin.then(RivalNpc.createCommand());
 
         var resolve = Commands.literal("resolve");
         var id = Commands.argument("id", IntegerArgumentType.integer(1));
@@ -151,16 +153,16 @@ public final class NationCommands {
         resolve.then(id);
         admin.then(resolve);
 
-        // /nacion admin economy tick | balance <nacion> <monedas>
+        // /nation admin economy tick | balance <nation> <coins>
         var economy = Commands.literal("economy");
         var tick = Commands.literal("tick");
         tick.executes(NationCommands::adminEconomyTick);
         var balance = Commands.literal("balance");
-        var nation = Commands.argument("nacion", StringArgumentType.word());
-        var amount = Commands.argument("monedas", DoubleArgumentType.doubleArg(0));
+        var nation = Commands.argument("nation", StringArgumentType.word());
+        var amount = Commands.argument("coins", DoubleArgumentType.doubleArg(0));
         amount.executes(ctx -> adminBalance(ctx,
-                StringArgumentType.getString(ctx, "nacion"),
-                DoubleArgumentType.getDouble(ctx, "monedas")));
+                StringArgumentType.getString(ctx, "nation"),
+                DoubleArgumentType.getDouble(ctx, "coins")));
         nation.then(amount);
         balance.then(nation);
         economy.then(tick);
@@ -223,22 +225,22 @@ public final class NationCommands {
      * Sends the map data to the player and asks it to open the screen.
      *
      * <p>The command belongs to the server on purpose: if it were registered as a
-     * client command, the client dispatcher would swallow the whole {@code /nacion}
-     * and the server subcommands (crear, claim...) would stop working.</p>
+     * client command, the client dispatcher would swallow the whole {@code /nation}
+     * and the server subcommands (create, claim...) would stop working.</p>
      */
-    private static int mapa(CommandContext<CommandSourceStack> ctx) {
+    private static int openMap(CommandContext<CommandSourceStack> ctx) {
         ServerPlayer player = ctx.getSource().getPlayer();
         if (player == null) {
             send(ctx, "Only a player can use this command", false);
             return 0;
         }
-        ModServer.sendMap(player);
-        if (ModServer.supportsOpenMapPayload(player)) {
-            PacketDistributor.sendToPlayer(player, OpenMapPayload.instance());
-        } else {
-            send(ctx, "Your client does not have the mod installed: the map cannot be opened", false);
-            return 0;
+        if (!ModServer.supportsMapPayload(player) || !ModServer.supportsOpenMapPayload(player)) {
+            player.sendSystemMessage(TerritoryChatMap.render(ModServer.nations(),
+                    NationService.dimensionId(player), player.chunkPosition(), ServerLanguage.of(player)));
+            return 1;
         }
+        ModServer.sendMap(player);
+        PacketDistributor.sendToPlayer(player, OpenMapPayload.instance());
         send(ctx, "Opening the nations map", true);
         return 1;
     }
@@ -251,7 +253,7 @@ public final class NationCommands {
         }
         Optional<Nation> nation = ModServer.nations().actingNation(player.getUUID());
         if (nation.isEmpty()) {
-            send(ctx, "You do not have a nation. Use /nacion crear <nombre>", false);
+            send(ctx, "You do not have a nation. Use /nation create <name>", false);
             return 0;
         }
         Nation owned = nation.get();
@@ -511,9 +513,8 @@ public final class NationCommands {
         int chunks = ModServer.nations().claims().chunkCount(owned.id());
         EconomyRules rules = ModServer.nations().economyRules();
 
-        long income = chunks * rules.claimIncome() * eco.incomeMultiplierPercent() / 100L;
-        long upkeep = chunks * rules.claimUpkeep()
-                + rules.investmentUpkeep(eco.farmLevel(), eco.garrisonLevel(), eco.treasuryLevel());
+        long income = rules.dailyIncome(chunks, eco);
+        long upkeep = rules.dailyUpkeep(chunks, eco);
         long defense = rules.defenseCost(chunks);
 
         send(ctx, "Economy of " + owned.name() + ":", true);
@@ -560,7 +561,7 @@ public final class NationCommands {
         send(ctx, "Defense of " + owned.name() + ": " + pending
                 + " (" + EconomyService.coins(pending) + " coins) | status: "
                 + (owned.economy().isDefended() ? "PROTECTED" : "UNPROTECTED")
-                + ". Pay it with /nacion defensa pagar", true);
+                + ". Pay it with /nation defense pay", true);
         return 1;
     }
 
@@ -575,7 +576,8 @@ public final class NationCommands {
         return result.success() ? 1 : 0;
     }
 
-    private static void send(CommandContext<CommandSourceStack> ctx, String message, boolean success) {        Component component = Component.literal(PREFIX + " " + message);
+    private static void send(CommandContext<CommandSourceStack> ctx, String message, boolean success) {
+        Component component = Component.literal(PREFIX + " " + message);
         if (success) {
             ctx.getSource().sendSuccess(() -> component, false);
         } else {

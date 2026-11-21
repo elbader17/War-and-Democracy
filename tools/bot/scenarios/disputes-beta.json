@@ -1,6 +1,6 @@
 [
-  { "command": "/nacion crear Beta", "expect": ["Nation Beta created"], "timeout": 20000 },
-  { "command": "/nacion disputar", "expect": ["Dispute #1 opened"], "timeout": 20000 },
-  { "command": "/nacion disputar", "expect": ["There is already an open dispute"], "timeout": 20000 },
-  { "command": "/nacion defender", "expect": ["That chunk does not belong to your nation"], "timeout": 20000 }
+  { "command": "/nation create Beta", "expect": ["Nation Beta created"], "timeout": 20000 },
+  { "command": "/nation dispute", "expect": ["Dispute #1 opened"], "timeout": 20000 },
+  { "command": "/nation dispute", "expect": ["There is already an open dispute"], "timeout": 20000 },
+  { "command": "/nation defend", "expect": ["That chunk does not belong to your nation"], "timeout": 20000 }
 ]

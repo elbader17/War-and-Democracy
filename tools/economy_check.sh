@@ -63,31 +63,31 @@ echo "    chunk claimed by Alfa: $CX, $CZ"
 
 cat > "$WORK/beta.json" <<JSON
 [
-  { "command": "/nacion crear Beta", "expect": ["Nation Beta created"], "timeout": 20000 },
-  { "command": "/nacion economia", "expect": ["Balance: 100.00 coins", "PROTECTED"], "timeout": 20000 },
-  { "command": "/nacion disputar $CX $CZ", "expect": ["Dispute #1 opened"], "timeout": 20000 },
-  { "command": "/nacion economia", "expect": ["Balance: 50.00 coins"], "timeout": 20000 }
+  { "command": "/nation create Beta", "expect": ["Nation Beta created"], "timeout": 20000 },
+  { "command": "/nation economy", "expect": ["Balance: 100.00 coins", "PROTECTED"], "timeout": 20000 },
+  { "command": "/nation dispute $CX $CZ", "expect": ["Dispute #1 opened"], "timeout": 20000 },
+  { "command": "/nation economy", "expect": ["Balance: 50.00 coins"], "timeout": 20000 }
 ]
 JSON
 
 cat > "$WORK/alfa-defend.json" <<JSON
 [
-  { "command": "/nacion economia", "expect": ["PROTECTED"], "timeout": 20000 },
-  { "command": "/nacion defender $CX $CZ", "expect": ["defended"], "timeout": 20000 }
+  { "command": "/nation economy", "expect": ["PROTECTED"], "timeout": 20000 },
+  { "command": "/nation defend $CX $CZ", "expect": ["defended"], "timeout": 20000 }
 ]
 JSON
 
 cat > "$WORK/alfa-unprotected.json" <<JSON
 [
-  { "command": "/nacion defender $CX $CZ", "expect": ["UNPROTECTED"], "timeout": 20000 },
-  { "command": "/nacion economia", "expect": ["UNPROTECTED"], "timeout": 20000 }
+  { "command": "/nation defend $CX $CZ", "expect": ["UNPROTECTED"], "timeout": 20000 },
+  { "command": "/nation economy", "expect": ["UNPROTECTED"], "timeout": 20000 }
 ]
 JSON
 
 cat > "$WORK/alfa-paid.json" <<JSON
 [
-  { "command": "/nacion defensa pagar", "expect": ["You have paid the defense"], "timeout": 20000 },
-  { "command": "/nacion economia", "expect": ["PROTECTED"], "timeout": 20000 }
+  { "command": "/nation defense pay", "expect": ["You have paid the defense"], "timeout": 20000 },
+  { "command": "/nation economy", "expect": ["PROTECTED"], "timeout": 20000 }
 ]
 JSON
 
@@ -102,11 +102,11 @@ node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/alfa-defend.json" \
   2>&1 | tee "$WORK/alfa-defend.log"
 
 echo "==> [5/6] The admin leaves Alfa without treasury and closes the economic day"
-BALANCE="$("$MODSERVER_ROOT/tools/console.sh" "nacion admin economy balance Alfa 0" || true)"
+BALANCE="$("$MODSERVER_ROOT/tools/console.sh" "nation admin economy balance Alfa 0" || true)"
 echo "$BALANCE" | sed 's/^/    | /'
 check "the admin empties Alfa's treasury" "0.00 coins" "$BALANCE"
 
-TICK="$("$MODSERVER_ROOT/tools/console.sh" "nacion admin economy tick" || true)"
+TICK="$("$MODSERVER_ROOT/tools/console.sh" "nation admin economy tick" || true)"
 echo "$TICK" | sed 's/^/    | /'
 check "the economic day is closed" "Economic day closed" "$TICK"
 check "Alfa ends up unprotected" "UNPROTECTED" "$TICK"
@@ -116,7 +116,7 @@ node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/alfa-unprotected.json"
   --host "$MODSERVER_HOST" --port "$MODSERVER_PORT" --user AlfaBot \
   2>&1 | tee "$WORK/alfa-unprotected.log"
 
-"$MODSERVER_ROOT/tools/console.sh" "nacion admin economy balance Alfa 500" >/dev/null 2>&1 || true
+"$MODSERVER_ROOT/tools/console.sh" "nation admin economy balance Alfa 500" >/dev/null 2>&1 || true
 node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/alfa-paid.json" \
   --host "$MODSERVER_HOST" --port "$MODSERVER_PORT" --user AlfaBot \
   2>&1 | tee "$WORK/alfa-paid.log"

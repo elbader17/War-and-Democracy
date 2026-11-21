@@ -2,6 +2,7 @@ package com.modserver.network;
 
 import com.modserver.ModServer;
 import com.modserver.client.network.ModServerClientNetworking;
+import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -39,6 +40,13 @@ public final class ModServerNetworking {
         // which speaks the vanilla protocol). NeoForge aborts the negotiation if the
         // server requires a payload the client does not support.
         PayloadRegistrar registrar = event.registrar(PROTOCOL_VERSION).optional();
+        registrar.playToClient(DisputeMapPayload.TYPE, DisputeMapPayload.STREAM_CODEC,
+                (payload, context) -> ModServerClientNetworking.handleMapData(payload));
+        registrar.playToClient(MapTerritoryInfo.TYPE, MapTerritoryInfo.STREAM_CODEC,
+                (payload, context) -> ModServerClientNetworking.territoryInfo(payload));
+
+        registrar.playToServer(RequestMapPayload.TYPE, RequestMapPayload.STREAM_CODEC,
+                (payload, context) -> ModServer.sendMap((ServerPlayer) context.player()));
 
         registrar.playToClient(NationMapPayload.TYPE, NationMapPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> {
@@ -51,6 +59,13 @@ public final class ModServerNetworking {
                 (payload, context) -> context.enqueueWork(() -> {
                     if (FMLEnvironment.dist == Dist.CLIENT) {
                         ModServerClientNetworking.openMap();
+                    }
+                }));
+
+        registrar.playToClient(BorderedMapPayload.TYPE, BorderedMapPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (FMLEnvironment.dist == Dist.CLIENT) {
+                        ModServerClientNetworking.handleMapData(payload);
                     }
                 }));
     }

@@ -1,5 +1,5 @@
 [
-  { "command": "/nacion crear Alfa", "expect": ["Nation Alfa created"], "timeout": 20000 },
-  { "command": "/nacion claim", "expect": ["claimed by Alfa"], "timeout": 20000 },
-  { "command": "/nacion info", "expect": ["chunks 1"], "timeout": 20000 }
+  { "command": "/nation create Alfa", "expect": ["Nation Alfa created"], "timeout": 20000 },
+  { "command": "/nation claim", "expect": ["claimed by Alfa"], "timeout": 20000 },
+  { "command": "/nation info", "expect": ["chunks 1"], "timeout": 20000 }
 ]

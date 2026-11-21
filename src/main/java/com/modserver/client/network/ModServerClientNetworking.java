@@ -2,6 +2,10 @@ package com.modserver.client.network;
 
 import com.modserver.client.map.NationMapData;
 import com.modserver.client.map.NationMapScreen;
+import com.modserver.network.BorderedMapPayload;
+import com.modserver.network.DisputeMapPayload;
+import com.modserver.network.MapTerritoryInfo;
+import com.modserver.client.map.TerritoryScreen;
 import com.modserver.network.NationMapPayload;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
@@ -30,6 +34,18 @@ public final class ModServerClientNetworking {
     /** Caches the map data sent by the server. */
     public static void handleMapData(NationMapPayload payload) {
         NationMapData.accept(payload);
+    }
+
+    public static void handleMapData(BorderedMapPayload payload) {
+        NationMapData.accept(payload);
+    }
+
+    public static void handleMapData(DisputeMapPayload payload) {
+        NationMapData.accept(payload);
+    }
+
+    public static void territoryInfo(MapTerritoryInfo info) {
+        TerritoryScreen.accept(info);
     }
 
     /** Opens the nation map screen. */

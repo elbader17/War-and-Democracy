@@ -1,5 +1,5 @@
 [
-  { "command": "/nacion info", "expect": ["chunks 1"], "timeout": 20000 },
-  { "command": "/nacion defender", "expect": ["defended"], "timeout": 20000 },
-  { "command": "/nacion info", "expect": ["chunks 1"], "timeout": 20000 }
+  { "command": "/nation info", "expect": ["chunks 1"], "timeout": 20000 },
+  { "command": "/nation defend", "expect": ["defended"], "timeout": 20000 },
+  { "command": "/nation info", "expect": ["chunks 1"], "timeout": 20000 }
 ]

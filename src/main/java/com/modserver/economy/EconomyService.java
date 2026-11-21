@@ -59,9 +59,7 @@ public final class EconomyService {
         int chunkCount = claims.chunkCount(nation.id());
 
         // 1. Maintenance: charged per chunk and for the investments.
-        long upkeep = chunkCount * rules.claimUpkeep()
-                + rules.investmentUpkeep(economy.farmLevel(), economy.garrisonLevel(),
-                        economy.treasuryLevel());
+        long upkeep = rules.dailyUpkeep(chunkCount, economy);
         List<Claim> lost = new ArrayList<>();
         long charged = chargeUpkeep(nation, rules, upkeep, lost);
         economy.setBalance(economy.balance() - charged);
@@ -69,7 +67,7 @@ public final class EconomyService {
         chunkCount -= chunksLost;
 
         // 2. Income: every chunk produces, and the farms multiply it.
-        long income = chunkCount * rules.claimIncome() * economy.incomeMultiplierPercent() / 100L;
+        long income = rules.dailyIncome(chunkCount, economy);
         economy.setBalance(economy.balance() + income);
 
         // 3. Defense: expensive if the territory is large. If unpaid, the nation is unprotected.

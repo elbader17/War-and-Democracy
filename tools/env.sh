@@ -31,8 +31,8 @@ modserver_check_toolchain() {
     echo "ERROR: no JDK 21 found in $JAVA_HOME (missing $TOOLCHAIN_DIR/jdk21)" >&2
     missing=1
   fi
-  if [ ! -x "$NODE_HOME/bin/node" ]; then
-    echo "WARNING: no Node found in $NODE_HOME (the bot will not work)" >&2
+  if ! command -v node >/dev/null; then
+    echo "WARNING: Node is required to run the test bots" >&2
   fi
   return $missing
 }

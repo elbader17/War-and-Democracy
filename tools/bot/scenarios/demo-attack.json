@@ -1,5 +1,5 @@
 [
-  { "command": "/nacion crear Delta", "expect": ["Nation Delta created"], "timeout": 20000 },
-  { "command": "/nacion atacar 3 3", "expect": ["Dispute #1 opened"], "timeout": 20000 },
-  { "command": "/nacion economia", "expect": ["Economy of Delta"], "timeout": 20000 }
+  { "command": "/nation create Delta", "expect": ["Nation Delta created"], "timeout": 20000 },
+  { "command": "/nation attack 3 3", "expect": ["Dispute #1 opened"], "timeout": 20000 },
+  { "command": "/nation economy", "expect": ["Economy of Delta"], "timeout": 20000 }
 ]

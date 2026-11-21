@@ -29,7 +29,7 @@ public class ModServerEconomyGameTests {
 
     /** Default rules (same as the server): everything in currency cents. */
     private static EconomyRules rules() {
-        return new EconomyRules(10000L, 200L, 100L, 2000L, 200L, 500L,
+        return new EconomyRules(10000L, 1200L, 100L, 2000L, 200L, 500L,
                 5000L, 50L, 10000L, 15000L, 20000L, 1000L, 1500L, 2000L, 3);
     }
 
@@ -57,13 +57,13 @@ public class ModServerEconomyGameTests {
 
         EconomyService.DailyReport report = f.economy().closeDay(f.nation(), rules(), 0L);
 
-        helper.assertTrue(report.income() == 200L, "The income must be the one of a chunk");
+        helper.assertTrue(report.income() == 1200L, "The income must be the one of a chunk");
         helper.assertTrue(report.upkeep() == 100L, "The upkeep must be the one of a chunk");
         // defense = base (2000) + per chunk (200) + quadratic (500 * 1 / 100 = 5)
         helper.assertTrue(report.defenseCost() == 2205L,
                 "The defense must be base + per chunk + quadratic");
         helper.assertTrue(report.defended(), "With balance the defense is paid");
-        helper.assertTrue(f.nation().economy().balance() == 10000L - 100L + 200L - 2205L,
+        helper.assertTrue(f.nation().economy().balance() == 10000L - 100L + 1200L - 2205L,
                 "The balance must be the initial one minus upkeep plus income minus defense");
 
         helper.succeed();
@@ -185,7 +185,7 @@ public class ModServerEconomyGameTests {
 
         long before = f.nation().economy().balance();
         EconomyService.DailyReport report = f.economy().closeDay(f.nation(), rules(), 0L);
-        helper.assertTrue(report.income() == 2L * 200L * 125L / 100L,
+        helper.assertTrue(report.income() == 2L * 1200L * 125L / 100L,
                 "The income must include the farm bonus");
         helper.assertTrue(report.interest() > 0L, "The treasury must give interest");
         // Balance = initial - upkeep + income - defense + interest

@@ -1,11 +1,17 @@
 # Map layers (Xaero's Minimap and JourneyMap)
 
-The mod draws the territory of the nations in **three** places:
+The demo uses JourneyMap for its minimap. Press `M` for the full screen terrain map
+with country borders. Active disputes are red tiles with a pale X. Right-click a
+chunk and select **Inspect / dispute territory** to see its owner. For an active
+dispute the panel shows the participants and remaining time. For an eligible rival
+chunk it offers the current price and defense window. Confirming opens the dispute
+using the country's treasury. The tile clears when the dispute ends. Use `/nation map`
+to open the political map.
 
 | Layer | What it shows | How |
 |---|---|---|
-| **Own map** (key `M` or `/nacion mapa`) | The territory of every nation as a solid area with the exact RGB colour and the border of the shape | Own code (`NationMapScreen`), no external mod needed |
-| **Xaero's Minimap / World Map** | One marker per nation (its capital) | Third party waypoint API |
+| **Political map** (`/nation map`) | The territory of every nation as a solid area with the exact RGB colour and the border of the shape | Own code (`NationMapScreen`), no external mod needed |
+| **Xaero's Minimap / World Map** (optional, installed separately) | One marker per nation (its capital) | Third party waypoint API |
 | **JourneyMap** (minimap and full screen map) | The territory of every nation drawn as a **polygon** (the union of its chunks) | JourneyMap overlay API v2 |
 
 The claimed chunks are **not** published as points in any minimap: the minimaps stay
@@ -19,7 +25,6 @@ Dependency (`build.gradle`):
 
 ```groovy
 compileOnly "xaero.minimap:xaerominimap-neoforge-${minecraft_version}:${xaero_minimap_version}"
-localRuntime "xaero.minimap:xaerominimap-neoforge-${minecraft_version}:${xaero_minimap_version}"
 ```
 
 API used (verified with `javap` on `xaerominimap-neoforge-1.21.1-26.6.0`):
@@ -88,23 +93,25 @@ Notes:
   so the polygons are aligned with the world.
 - A disconnected territory produces several polygons (one per connected piece) and
   the enclaves become holes of the outer polygon.
-- The overlays are drawn in the **minimap** and in the **full screen map**; the
-  `M` key of the mod closes the JourneyMap screen when the own map is opened.
+- The overlays appear in the **minimap** and in the **full screen terrain map**.
+  Opening the terrain map with `M` requests fresh borders around the player.
 
 ## 3. Own map of the mod
 
-`NationMapScreen` paints, for every claim, a cell of `cellSize` pixels with the
-nation colour, and then draws the **border of the union**: the edges that are not
-shared with another chunk of the same nation are highlighted (a brighter version of
-the colour), so the land reads as one shape.
+Each claim uses its country's colour. A gold line follows the border between two
+countries. A pale line follows the boundary with unclaimed land. The map legend
+identifies both. The server checks all four neighbours of each claim when sending
+a map update, including neighbours outside the displayed area. JourneyMap uses
+the same edges on its terrain map and minimap. The vanilla chat map marks chunks
+that touch another country with ▣.
 
 Controls: wheel to zoom, drag to move, click a nation in the panel to go to its
-capital, `ESC` to close.
+capital, right-click a chunk to inspect or dispute it, `ESC` to close.
 
 ## 4. Verifying it
 
 ```bash
-./tools/map_check.sh     # own map + Xaero minimap captures
+./tools/map_check.sh     # political map and JourneyMap minimap captures
 ./tools/demo.sh          # full demo: 3 nations, dispute, both captures
 ./gradlew runClientJourneyMap   # JourneyMap full screen map with the polygons
 ```
@@ -112,6 +119,5 @@ capital, `ESC` to close.
 The client logs are the fastest check:
 
 ```
-MODSERVER_SELFTEST XAERO waypoints published: 4 capital markers from 4 nations
 MODSERVER_SELFTEST JOURNEYMAP territories drawn: 5 shapes from 4 nations
 ```

@@ -182,12 +182,12 @@ final class XaeroBridge {
                 ModServerCommands.SELFTEST_MARKER, publishedCount, pendingNations.length, waypoints.getCount());
     }
 
-    private static void logNotReady(String motivo) {
+    private static void logNotReady(String reason) {
         // Only the first attempts are reported: if Xaero is still not ready, there is
         // no point in repeating the message every tick.
         if (attempts == 1 || attempts % 100 == 0) {
             LOGGER.info("{} XAERO not ready yet ({}), will retry",
-                    ModServerCommands.SELFTEST_MARKER, motivo);
+                    ModServerCommands.SELFTEST_MARKER, reason);
         }
     }
 

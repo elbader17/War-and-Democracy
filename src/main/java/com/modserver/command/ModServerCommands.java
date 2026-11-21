@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.internal.versions.neoforge.NeoForgeVersion;
 import org.slf4j.Logger;
@@ -35,7 +36,10 @@ public final class ModServerCommands {
                 .requires(source -> source.hasPermission(0))
                 .then(Commands.literal("info").executes(ModServerCommands::info))
                 .then(Commands.literal("selftest").executes(ModServerCommands::selftest))
-                .then(Commands.literal("spawncog").executes(ModServerCommands::spawnCog)));
+                .then(Commands.literal("spawncog")
+                        .requires(source -> source.hasPermission(2)
+                                || (source.getPlayer() != null && source.getPlayer().isCreative()))
+                        .executes(ModServerCommands::spawnCog)));
     }
 
     private static int info(CommandContext<CommandSourceStack> ctx) {
@@ -112,8 +116,10 @@ public final class ModServerCommands {
                 ? entity.blockPosition().relative(entity.getDirection())
                 : BlockPos.containing(source.getPosition()).relative(net.minecraft.core.Direction.SOUTH);
 
-        BlockState state = ModServerBlocks.COG.get().defaultBlockState();
-        boolean alreadyThere = level.getBlockState(target).is(ModServerBlocks.COG.get());
+        Block marker = level.getRecipeManager().byKey(ModServer.id("cog")).isPresent()
+                ? ModServerBlocks.COG.get() : Blocks.COPPER_BLOCK;
+        BlockState state = marker.defaultBlockState();
+        boolean alreadyThere = level.getBlockState(target).is(marker);
         boolean placed = level.setBlockAndUpdate(target, state);
         boolean ok = placed || alreadyThere;
         String msg = "[modserver] spawncog " + (ok ? "OK" : "FAIL") + " at " + target.toShortString();

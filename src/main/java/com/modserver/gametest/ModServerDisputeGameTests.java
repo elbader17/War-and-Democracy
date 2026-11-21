@@ -165,6 +165,9 @@ public class ModServerDisputeGameTests {
         helper.assertTrue(f.claims().claimAt(WORLD, 0, 0).nationId().equals(f.attacker().id()),
                 "The chunk must go to the challenging nation");
 
+        helper.assertTrue(f.claims().chunkCount(f.attacker().id()) == 1
+                        && f.claims().chunkCount(f.defender().id()) == 0,
+                "Conquest must move the territory counted by the economy and sidebar");
         helper.succeed();
     }
 
@@ -210,7 +213,6 @@ public class ModServerDisputeGameTests {
     @GameTest(template = "empty")
     public void warShortensTheDefenseWindowAndSkipsTheCooldown(GameTestHelper helper) {
         Fixture f = fixture();
-        f.attacker().setRelation(f.defender().id(), NationRelation.WAR);
 
         // With a normal cooldown, the second dispute of the same aggressor would be rejected.
         f.claims().claim(new Claim(WORLD, 2, 0, f.defender().id(), 0L));
@@ -220,13 +222,21 @@ public class ModServerDisputeGameTests {
         helper.assertTrue(first.dispute().deadline() == WINDOW,
                 "Without war the window must be the full one");
 
-        // At war: the window is the war one and there is no per-challenger cooldown.
+        DisputeService.Outcome rejected = f.service().open(f.attacker().id(), WORLD, 0, 0,
+                10L, warRules(), true);
+        helper.assertFalse(rejected.success(), "An open dispute cannot be attacked again");
+        helper.assertTrue(f.attacker().relationWith(f.defender().id()) == NationRelation.NEUTRAL,
+                "A rejected attack must not declare war");
+
+        // The attack declares war and uses the shorter window on its first dispute.
         DisputeService.Outcome war = f.service().open(f.attacker().id(), WORLD, 2, 0,
-                10L, warRules());
+                10L, warRules(), true);
         helper.assertTrue(war.success(),
                 "At war the per-challenger cooldown must not apply: " + war.message());
         helper.assertTrue(war.dispute().deadline() == 10L + 5L * 1200L,
                 "At war the defense window must be the war one");
+        helper.assertTrue(f.defender().relationWith(f.attacker().id()) == NationRelation.WAR,
+                "The defender must see the declaration of war");
 
         helper.succeed();
     }
