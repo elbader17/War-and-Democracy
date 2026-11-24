@@ -1,6 +1,13 @@
 package com.modserver.nation;
 
 import com.modserver.economy.NationEconomy;
+import com.modserver.council.CouncilPost;
+import java.util.ArrayList;
+import java.util.List;
+import com.modserver.military.TroopTransfer;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.PriorityQueue;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -21,6 +28,11 @@ public final class Nation {
 
     private final UUID id;
     private String name;
+    private String preamble = "";
+    private String doctrines = "";
+    private Long treasuryChest;
+    private String treasuryDimension;
+
     private UUID owner;
     private final Map<UUID, NationRole> members = new LinkedHashMap<>();
     private int color;
@@ -29,7 +41,29 @@ public final class Nation {
     private int capitalZ;
     private long createdAt;
     private final Map<UUID, NationRelation> relations = new LinkedHashMap<>();
-    /** Nation economy: treasury, defense and investments. */
+    private final PriorityQueue<TroopTransfer> transfers = new PriorityQueue<>(Comparator.comparingLong(TroopTransfer::dueAt));
+
+    private final List<CouncilPost> register = new ArrayList<>();
+    private boolean envoy;
+    public boolean isEnvoy() { return envoy; }
+    public void setEnvoy(boolean value) { envoy = value; }
+    public List<CouncilPost> register() { return Collections.unmodifiableList(register); }
+    public void removePost(UUID id) { register.removeIf(post -> post.id().equals(id)); }
+    public void file(CouncilPost post) {
+        if (!post.to().equals(id) && (!post.from().equals(id) || post.kind().offer())) return;
+        if (!post.kind().offer() && register.stream().filter(entry -> !entry.kind().offer()).count() >= 64)
+            register.remove(register.stream().filter(entry -> !entry.kind().offer()).findFirst().orElseThrow());
+        register.add(post);
+    }
+
+    public Collection<TroopTransfer> transfers() { return Collections.unmodifiableCollection(transfers); }
+    public void addTransfer(TroopTransfer trip) { transfers.add(trip); }
+    public TroopTransfer pollDueTransfer(long now) {
+        var next = transfers.peek();
+        return next != null && next.dueAt() <= now ? transfers.poll() : null;
+    }
+
+    /** Nation economy: treasury, troop reserve and investments. */
     private final NationEconomy economy = new NationEconomy();
 
     public Nation(UUID id, String name, UUID owner, int color, long createdAt) {
@@ -49,8 +83,19 @@ public final class Nation {
         return name;
     }
 
-    public void rename(String newName) {
+    void rename(String newName) {
         this.name = newName;
+    }
+
+    public String preamble() { return preamble; }
+    public void setPreamble(String value) { preamble = value; }
+    public String doctrines() { return doctrines; }
+    public void setDoctrines(String value) { doctrines = value; }
+    public Long treasuryChest() { return treasuryChest; }
+    public String treasuryDimension() { return treasuryDimension; }
+    public void setTreasuryChest(String dimension, long pos) {
+        treasuryDimension = dimension;
+        treasuryChest = pos;
     }
 
     public UUID owner() {
@@ -134,7 +179,7 @@ public final class Nation {
         this.createdAt = createdAt;
     }
 
-    /** Nation economy (treasury, defense debt, investments). */
+    /** Nation economy (treasury, troop reserve, investments). */
     public NationEconomy economy() {
         return economy;
     }
@@ -148,6 +193,8 @@ public final class Nation {
     }
 
     public void setRelation(UUID otherNation, NationRelation relation) {
+        if (relationWith(otherNation) != relation)
+            register.removeIf(post -> post.from().equals(otherNation) && post.kind().treaty());
         if (relation == null || relation == NationRelation.NEUTRAL) {
             relations.remove(otherNation);
         } else {

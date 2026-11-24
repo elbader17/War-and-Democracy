@@ -1,5 +1,6 @@
 package com.modserver.dispute;
 
+import com.modserver.military.TroopCounts;
 import java.util.UUID;
 
 /**
@@ -40,6 +41,16 @@ public final class Dispute {
         this.deadline = deadline;
         this.status = DisputeStatus.OPEN;
     }
+
+    public static final int DUEL_TICKS = 100;
+    /** Armies in the field have already left their origin. Older disputes have no field force. */
+    public record Assault(int originX, int originZ, TroopCounts forces, long nextDuel) {
+        public int attackers() { return forces.total(); }
+    }
+    private Assault assault;
+
+    public Assault assault() { return assault; }
+    public void setAssault(Assault force) { assault = force; }
 
     public long id() {
         return id;

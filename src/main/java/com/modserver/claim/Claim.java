@@ -1,5 +1,6 @@
 package com.modserver.claim;
 
+import com.modserver.military.TroopCounts;
 import java.util.UUID;
 
 /**
@@ -15,6 +16,27 @@ public final class Claim {
     private final int chunkZ;
     private UUID nationId;
     private final long createdAt;
+    private TroopCounts forces = new TroopCounts(1, 0, 0);
+    private int missiles;
+    private int nuclearMissiles;
+    public int nuclearMissiles() { return nuclearMissiles; }
+    public void setNuclearMissiles(int count) {
+        if (count < 0) throw new IllegalArgumentException("Negative nuclear missile count");
+        nuclearMissiles = count;
+    }
+
+    public int armies() { return forces.total(); }
+    public TroopCounts forces() { return forces; }
+    public void setForces(TroopCounts value) { forces = value; }
+    public int missiles() { return missiles; }
+    public void setArmies(int count) {
+        if (count < 0) throw new IllegalArgumentException("Negative army count");
+        forces = new TroopCounts(count, 0, 0);
+    }
+    public void setMissiles(int count) {
+        if (count < 0) throw new IllegalArgumentException("Negative missile count");
+        missiles = count;
+    }
 
     public Claim(String dimension, int chunkX, int chunkZ, UUID nationId, long createdAt) {
         this.dimension = dimension;

@@ -4,6 +4,7 @@ import com.modserver.client.map.NationMapData;
 import com.modserver.client.map.NationMapScreen;
 import com.modserver.network.BorderedMapPayload;
 import com.modserver.network.DisputeMapPayload;
+import com.modserver.network.OilMapPayload;
 import com.modserver.network.MapTerritoryInfo;
 import com.modserver.client.map.TerritoryScreen;
 import com.modserver.network.NationMapPayload;
@@ -28,6 +29,18 @@ import net.neoforged.api.distmarker.OnlyIn;
 @OnlyIn(Dist.CLIENT)
 public final class ModServerClientNetworking {
 
+    public static void missile(com.modserver.network.MissileFlight flight, boolean focusLaunch) {
+        com.modserver.client.MissileRenderer.launch(flight, focusLaunch);
+    }
+
+    public static void reserveChests(com.modserver.network.ReserveChests view) {
+        com.modserver.client.ReserveChestRenderer.show(view);
+    }
+
+    public static void tactics(com.modserver.network.TacticalBoard board) {
+        com.modserver.client.map.TacticalScreen.accept(board);
+    }
+
     private ModServerClientNetworking() {
     }
 
@@ -42,6 +55,18 @@ public final class ModServerClientNetworking {
 
     public static void handleMapData(DisputeMapPayload payload) {
         NationMapData.accept(payload);
+    }
+
+    public static void handleMapData(OilMapPayload snapshot) {
+        NationMapData.accept(snapshot);
+    }
+
+    public static void council(com.modserver.network.CouncilView view) {
+        com.modserver.client.CouncilScreen.accept(view);
+    }
+
+    public static void government(com.modserver.network.GovernmentView view) {
+        com.modserver.client.GovernmentScreen.accept(view);
     }
 
     public static void territoryInfo(MapTerritoryInfo info) {

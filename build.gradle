@@ -212,6 +212,15 @@ configurations {
 }
 
 dependencies {
+    // The oil industry is optional at runtime. Enable it in development with -Ppetroleum.
+    def petroleumMods = ['maven.modrinth:create:UjX6dr61', 'maven.modrinth:create-diesel-generators:yzsE99E2']
+    petroleumMods.each { coordinate ->
+        compileOnly(coordinate) { transitive = false }
+        if (providers.gradleProperty('petroleum').orNull == 'true') {
+            localRuntime(coordinate) { transitive = false }
+        }
+    }
+
     // Optional capital markers for players who install Xaero's Minimap.
     compileOnly "xaero.minimap:xaerominimap-neoforge-${minecraft_version}:${xaero_minimap_version}"
 

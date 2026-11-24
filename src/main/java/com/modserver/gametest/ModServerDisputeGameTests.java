@@ -147,31 +147,18 @@ public class ModServerDisputeGameTests {
         helper.succeed();
     }
 
-    /** If the window expires without defense, the chunk goes to the challenger. */
     @GameTest(template = "empty")
-    public void disputeExpiresAndTransfersTheChunk(GameTestHelper helper) {
+    public void expiredBattleKeepsTheOccupyingArmy(GameTestHelper helper) {
         Fixture f = fixture();
-        DisputeService.Outcome opened = f.service().open(f.attacker().id(), WORLD, 0, 0,100L, rules(WINDOW, NO_COOLDOWN, NO_COOLDOWN));
-
-        // It has not expired yet.
-        helper.assertTrue(f.service().expire(100L + WINDOW).isEmpty(),
-                "The dispute must not expire early");
-
-        // The window passes without defense: the chunk changes owner.
-        var resolved = f.service().expire(100L + WINDOW + 1L);
-        helper.assertTrue(resolved.size() == 1, "The dispute should expire");
-        helper.assertTrue(resolved.get(0).status() == DisputeStatus.TRANSFERRED,
-                "The dispute must end up TRANSFERRED");
-        helper.assertTrue(f.claims().claimAt(WORLD, 0, 0).nationId().equals(f.attacker().id()),
-                "The chunk must go to the challenging nation");
-
-        helper.assertTrue(f.claims().chunkCount(f.attacker().id()) == 1
-                        && f.claims().chunkCount(f.defender().id()) == 0,
-                "Conquest must move the territory counted by the economy and sidebar");
+        f.service().open(f.attacker().id(), WORLD, 0, 0, 100L, rules(WINDOW, NO_COOLDOWN, NO_COOLDOWN));
+        helper.assertTrue(f.service().expire(100L + WINDOW).isEmpty(), "Do not close early");
+        var closed = f.service().expire(101L + WINDOW);
+        helper.assertTrue(closed.size() == 1 && closed.getFirst().status() == DisputeStatus.KEPT, "Idle battle ends");
+        helper.assertTrue(f.claims().claimAt(WORLD, 0, 0).nationId().equals(f.defender().id()), "A timer cannot conquer land");
         helper.succeed();
     }
 
-    /** Defending with the window already closed does not work: the chunk is already the challenger's. */
+    /** Defending with the window already closed does not work: the occupying army has kept the chunk. */
     @GameTest(template = "empty")
     public void defendingAfterDeadlineFails(GameTestHelper helper) {
         Fixture f = fixture();
@@ -181,8 +168,8 @@ public class ModServerDisputeGameTests {
         DisputeService.Outcome outcome = f.service().defend(f.defender().id(), WORLD, 0, 0,
                 100L + WINDOW + 2L);
         helper.assertTrue(!outcome.success(), "You cannot defend a dispute that already expired");
-        helper.assertTrue(f.claims().claimAt(WORLD, 0, 0).nationId().equals(f.attacker().id()),
-                "The chunk is no longer the defender's");
+        helper.assertTrue(f.claims().claimAt(WORLD, 0, 0).nationId().equals(f.defender().id()),
+                "The occupying nation keeps the chunk");
 
         helper.succeed();
     }

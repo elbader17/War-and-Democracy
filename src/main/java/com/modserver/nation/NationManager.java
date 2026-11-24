@@ -15,8 +15,8 @@ import java.util.regex.Pattern;
  */
 public final class NationManager {
 
-    /** 3-24 characters, letters, numbers and underscore. */
-    private static final Pattern NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_]{3,24}$");
+    /** Nation names can contain letters, digits, underscores and single spaces between words. */
+    private static final Pattern NAME_PATTERN = Pattern.compile("[\\p{L}0-9_]+(?: [\\p{L}0-9_]+)*");
 
     private final Map<UUID, Nation> byId = new LinkedHashMap<>();
     /** Index by normalized name (lowercase) to avoid duplicate names. */
@@ -35,6 +35,17 @@ public final class NationManager {
         byId.put(id, nation);
         byName.put(normalized, id);
         return nation;
+    }
+
+    public boolean rename(Nation nation, String name) {
+        if (!isValidName(name) || byId.get(nation.id()) != nation) return false;
+        String key = name.toLowerCase(Locale.ROOT);
+        UUID existing = byName.get(key);
+        if (existing != null && !existing.equals(nation.id())) return false;
+        byName.remove(nation.name().toLowerCase(Locale.ROOT));
+        nation.rename(name);
+        byName.put(key, nation.id());
+        return true;
     }
 
     public void add(Nation nation) {
@@ -90,7 +101,7 @@ public final class NationManager {
     }
 
     public static boolean isValidName(String name) {
-        return name != null && NAME_PATTERN.matcher(name).matches();
+        return name != null && name.length() >= 3 && name.length() <= 24 && NAME_PATTERN.matcher(name).matches();
     }
 
     public static List<String> validateName(String name) {
@@ -100,7 +111,7 @@ public final class NationManager {
             return problems;
         }
         if (!isValidName(name)) {
-            problems.add("The name must have 3-24 letters, numbers or underscores");
+            problems.add("Use 3–24 letters, digits, underscores or spaces between words");
         }
         return problems;
     }

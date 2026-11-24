@@ -94,6 +94,7 @@ public final class ModServerClientCommands {
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         NationMapData.clear();
+        ReserveChestRenderer.show(null);
     }
 
     @SubscribeEvent

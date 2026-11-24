@@ -1,5 +1,6 @@
 package com.modserver;
 
+import com.modserver.military.TroopCounts;
 import com.modserver.block.ModServerBlocks;
 import com.modserver.command.ModServerCommands;
 import com.modserver.command.NationCommands;
@@ -16,6 +17,9 @@ import com.modserver.network.BorderedMapPayload;
 import com.modserver.network.DisputeMapPayload;
 import com.modserver.network.NationMapPayload;
 import com.modserver.network.OpenMapPayload;
+import com.modserver.network.OilMapPayload;
+import com.modserver.petroleum.OilFields;
+import com.modserver.petroleum.Petroleum;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackType;
@@ -86,12 +90,27 @@ public class ModServer {
         NeoForge.EVENT_BUS.addListener(this::registerCommands);
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
         NeoForge.EVENT_BUS.addListener(this::onServerStopping);
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.LevelEvent.Save event) -> {
+            if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level
+                    && level == level.getServer().overworld() && nations.isDirty()) {
+                try {
+                    nations.save();
+                } catch (IOException e) {
+                    ModServerCommands.LOGGER.error("Could not save the nation treasury", e);
+                }
+            }
+        });
         NeoForge.EVENT_BUS.addListener(this::onServerTick);
         NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerChangedDimensionEvent event) -> {
             if (event.getEntity() instanceof ServerPlayer player) sendMap(player);
         });
         NeoForge.EVENT_BUS.addListener(RivalNpc::interact);
+        NeoForge.EVENT_BUS.addListener(RivalNpc::join);
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {
+            com.modserver.government.Government.disconnect(event.getEntity().getUUID());
+            com.modserver.military.Tactics.disconnect(event.getEntity().getUUID());
+        });
         // RegisterGameTestsEvent and GatherDataEvent go on the mod bus.
         modBus.addListener(this::registerGameTests);
         modBus.addListener(ModServerDataGen::gatherData);
@@ -110,11 +129,14 @@ public class ModServer {
         event.register(ModServerGameTests.class);
         event.register(ModServerDisputeGameTests.class);
         event.register(ModServerEconomyGameTests.class);
+        event.register(com.modserver.gametest.GovernmentGameTests.class);
+        event.register(com.modserver.gametest.TacticalGameTests.class);
     }
 
     // ------------------------------------------------------- world lifecycle
     private void onServerStarted(ServerStartedEvent event) {
         MinecraftServer server = event.getServer();
+        nations = new NationService();
         nations.setServer(server);
         try {
             nations.load(server.getWorldPath(LevelResource.ROOT).toAbsolutePath());
@@ -140,19 +162,22 @@ public class ModServer {
     private void onServerTick(ServerTickEvent.Post event) {
         long gameTime = event.getServer().overworld().getGameTime();
 
-        // Economic day close: income, upkeep and defense.
+        // Economic day close: income, reinforcements and interest.
         if (gameTime % ECONOMY_DAY_TICKS == 0) {
             nations.closeEconomyDay(gameTime);
         }
 
-        // Dispute expiration: if the defending nation does not answer in time, the
-        // chunk changes owner. It is checked once per second.
+        com.modserver.military.TroopTransfer.advance(nations, gameTime);
+        nations.tickBattles(event.getServer(), gameTime);
+        nations.missileEffects().tick(event.getServer());
+        // Older, untimed-by-duel disputes retain their original defense window.
         if (event.getServer().getTickCount() % MAP_SYNC_INTERVAL_TICKS == 0) {
             nations.expireDisputes(gameTime);
         }
 
         // Resend of the map data when something changes (claims, nations, agreements).
         if (event.getServer().getTickCount() % MAP_SYNC_INTERVAL_TICKS == 0) {
+            com.modserver.government.ReserveAppearance.update(event.getServer());
             syncMapToAll(event.getServer());
             nationSidebar.update(event.getServer(), nations);
             warHud.update(event.getServer(), nations);
@@ -215,10 +240,20 @@ public class ModServer {
                 });
                 if (showDisputes) {
                     var battles = nations.disputes().open().stream().filter(d -> dimension.equals(d.dimension()))
-                            .map(d -> new DisputeMapPayload.Battle(d.chunkX(), d.chunkZ(),
-                                    nations.nameOf(d.challengerNationId()), nations.nameOf(d.defenderNationId()))).toList();
-                    PacketDistributor.sendToPlayer(player, new DisputeMapPayload(bordered,
-                            player.level().dimension().location(), battles));
+                            .map(d -> {
+                                var assault = d.assault();
+                                var target = nations.claims().claimAt(dimension, d.chunkX(), d.chunkZ());
+                                return new DisputeMapPayload.Battle(d.chunkX(), d.chunkZ(), nations.nameOf(d.challengerNationId()),
+                                        nations.nameOf(d.defenderNationId()), assault == null ? 1 : d.chunkX() - assault.originX(),
+                                        assault == null ? 0 : d.chunkZ() - assault.originZ(), assault == null ? new TroopCounts(1, 0, 0) : assault.forces(),
+                                        target == null ? TroopCounts.EMPTY : target.forces(), assault == null ? 0 : assault.nextDuel());
+                            }).toList();
+                    var snapshot = new DisputeMapPayload(bordered, player.level().dimension().location(), battles);
+                    if (Petroleum.enabled() && NetworkRegistry.hasChannel(player.connection, OilMapPayload.TYPE.id())) {
+                        var fields = OilFields.of(player.serverLevel()).visible(map, nations.claims(), dimension,
+                                nations.nationOf(player.getUUID()).map(n -> n.id()).orElse(null));
+                        PacketDistributor.sendToPlayer(player, new OilMapPayload(snapshot, fields));
+                    } else PacketDistributor.sendToPlayer(player, snapshot);
                 } else {
                     PacketDistributor.sendToPlayer(player, bordered);
                 }

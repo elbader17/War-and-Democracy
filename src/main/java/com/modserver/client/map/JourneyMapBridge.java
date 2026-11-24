@@ -10,6 +10,10 @@ import journeymap.api.v2.client.IClientAPI;
 import journeymap.api.v2.client.display.Context;
 import journeymap.api.v2.client.display.DisplayType;
 import journeymap.api.v2.client.display.PolygonOverlay;
+import journeymap.api.v2.client.display.MarkerOverlay;
+import journeymap.api.v2.client.display.Overlay;
+import journeymap.api.v2.client.model.MapImage;
+import journeymap.api.v2.client.model.TextProperties;
 import journeymap.api.v2.client.model.MapPolygon;
 import journeymap.api.v2.client.model.MapPolygonWithHoles;
 import journeymap.api.v2.client.model.ShapeProperties;
@@ -128,6 +132,7 @@ final class JourneyMapBridge {
             // Remove the shapes of the previous update: the territory changes
             // every time a chunk is claimed or released.
             api.removeAll(MOD_ID, DisplayType.Polygon);
+            api.removeAll(MOD_ID, DisplayType.Marker);
 
             int shapes = 0;
             for (int i = 0; i < pendingNations.length; i++) {
@@ -161,6 +166,9 @@ final class JourneyMapBridge {
 
             for (var battle : NationMapData.battles()) {
                 showBattle(api, dimension, battle);
+            }
+            for (long key : NationMapData.oilFields()) {
+                showOilField(api, dimension, new ChunkPos(key));
             }
             published = true;
             LOGGER.info("{} JOURNEYMAP territories drawn: {} shapes from {} nations",
@@ -231,10 +239,34 @@ final class JourneyMapBridge {
         show(api, mark, pendingNations.length + 2);
     }
 
-    private static void show(IClientAPI api, PolygonOverlay overlay, int order) throws Exception {
+    private static void showOilField(IClientAPI api, ResourceKey<Level> dimension, ChunkPos chunk) throws Exception {
+        BlockPos corner = new BlockPos(chunk.getMinBlockX(), pendingPlayerY, chunk.getMinBlockZ());
+        var bounds = new MapPolygon(corner.offset(1, 0, 1), corner.offset(15, 0, 1),
+                corner.offset(15, 0, 15), corner.offset(1, 0, 15));
+        var outline = new ShapeProperties().setFillColor(OilMapMarker.GOLD & 0xFFFFFF).setFillOpacity(.16f)
+                .setStrokeColor(OilMapMarker.GOLD & 0xFFFFFF).setStrokeOpacity(1).setStrokeWidth(2);
+        var area = new PolygonOverlay(MOD_ID, dimension, outline, bounds);
+        String name = I18n.get("map.modserver.oil");
+        area.setTitle(name);
+        show(api, area, pendingNations.length + 1, Context.UI.Fullscreen);
+
+        var icon = new MapImage(OilMapMarker.ICON, OilMapMarker.WIDTH, OilMapMarker.HEIGHT)
+                .setDisplayWidth(36).setDisplayHeight(43).setAnchorX(18).setAnchorY(43).setBlur(false);
+        var marker = new MarkerOverlay(MOD_ID, corner.offset(8, 0, 8), icon);
+        marker.setDimension(dimension).setTitle(I18n.get("gov.oil.field")).setLabel(name);
+        marker.setTextProperties(new TextProperties().setScale(1.75f).setColor(0xFFF0BC).setBackgroundColor(0x342D22)
+                .setBackgroundOpacity(.94f).setOffsetY(-34));
+        show(api, marker, pendingNations.length + 3, Context.UI.Fullscreen);
+    }
+
+    private static void show(IClientAPI api, Overlay overlay, int order) throws Exception {
+        show(api, overlay, order, Context.UI.Minimap, Context.UI.Fullscreen);
+    }
+
+    private static void show(IClientAPI api, Overlay overlay, int order, Context.UI... uis) throws Exception {
         overlay.setOverlayGroupName(GROUP_NAME);
         overlay.setDisplayOrder(order);
-        overlay.setActiveUIs(Context.UI.Minimap, Context.UI.Fullscreen);
+        overlay.setActiveUIs(uis);
         overlay.setActiveMapTypes(Context.MapType.Day, Context.MapType.Night,
                 Context.MapType.Topo, Context.MapType.Biome, Context.MapType.Underground);
         api.show(overlay);

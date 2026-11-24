@@ -63,31 +63,44 @@ fi
 CX="${CHUNK%%,*}"
 CZ="${CHUNK##*,}"
 echo "    chunk claimed by Alfa: $CX, $CZ"
+BX=$((CX+1))
+"$MODSERVER_ROOT/tools/console.sh" "gamerule spawnRadius 0" >/dev/null
+"$MODSERVER_ROOT/tools/console.sh" "execute positioned $((BX*16+8)) 0 $((CZ*16+8)) positioned over world_surface run setworldspawn ~ ~ ~" >/dev/null
 
 # Scenarios with the real coordinates of the disputed chunk.
 cat > "$WORK/beta.json" <<JSON
 [
   { "command": "/nation create Beta", "expect": ["Nation Beta created"], "timeout": 20000 },
-  { "command": "/nation dispute $CX $CZ", "expect": ["Dispute #1 opened"], "timeout": 20000 },
-  { "command": "/nation dispute $CX $CZ", "expect": ["There is already an open dispute"], "timeout": 20000 },
-  { "command": "/nation defend $CX $CZ", "expect": ["That chunk does not belong to your nation"], "timeout": 20000 }
+  { "command": "/nation claim", "expect": ["claimed by Beta"], "timeout": 20000 },
+  { "command": "/nation tactics buy 3", "expect": ["Bought 3 reserve armies"], "timeout": 20000 },
+  { "command": "/nation tactics deploy $BX $CZ 3", "expect": ["Deployed 3 armies"], "timeout": 20000 },
+  { "command": "/nation tactics roll $BX $CZ $CX $CZ 4", "expect": ["Attack launched:"], "timeout": 20000 },
+  { "command": "/nation tactics deploy $CX $CZ 1", "expect": ["Select a chunk your nation owns"], "timeout": 20000 }
 ]
 JSON
 
 cat > "$WORK/alfa-defend.json" <<JSON
 [
   { "command": "/nation info", "expect": ["chunks 1"], "timeout": 20000 },
-  { "command": "/nation defend $CX $CZ", "expect": ["defended"], "timeout": 20000 },
+  { "command": "/nation tactics $CX $CZ", "expect": ["Alfa"], "timeout": 20000 },
   { "command": "/nation info", "expect": ["chunks 1"], "timeout": 20000 }
 ]
 JSON
 
+cat > "$WORK/alfa-reinforce.json" <<JSON
+[
+  { "command": "/nation tactics buy 3", "expect": ["Bought 3 reserve armies"], "timeout": 20000 },
+  { "command": "/nation tactics deploy $CX $CZ 3", "expect": ["Deployed 3 armies"], "timeout": 20000 }
+]
+JSON
+node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/alfa-reinforce.json" \
+  --host "$MODSERVER_HOST" --port "$MODSERVER_PORT" --user AlfaBot
 echo "==> [3/6] Bot Beta founds its nation and disputes the chunk"
 node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/beta.json" \
   --host "$MODSERVER_HOST" --port "$MODSERVER_PORT" --user BetaBot \
   2>&1 | tee "$WORK/beta.log"
 
-echo "==> [4/6] Bot Alfa defends the dispute"
+echo "==> [4/6] Bot Alfa inspects the defended chunk"
 node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/alfa-defend.json" \
   --host "$MODSERVER_HOST" --port "$MODSERVER_PORT" --user AlfaBot \
   2>&1 | tee "$WORK/alfa-defend.log"
@@ -95,7 +108,7 @@ node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/alfa-defend.json" \
 echo "==> [5/6] Checking the state via RCON"
 DISPUTES="$("$MODSERVER_ROOT/tools/console.sh" "nation disputes" || true)"
 echo "$DISPUTES" | sed 's/^/    | /'
-check "the dispute is DEFENDED" "DEFENDED" "$DISPUTES"
+check "both armies remain in the engagement" "OPEN" "$DISPUTES"
 check "the dispute is #1" "#1" "$DISPUTES"
 
 LIST="$("$MODSERVER_ROOT/tools/console.sh" "nation list" || true)"

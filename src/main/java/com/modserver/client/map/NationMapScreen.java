@@ -1,6 +1,7 @@
 package com.modserver.client.map;
 
 import com.modserver.network.NationMapPayload;
+import com.modserver.client.CampaignStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -114,14 +115,14 @@ public class NationMapScreen extends Screen {
 
     private void drawTopBar(GuiGraphics graphics, NationMapPayload.NationView[] nations,
                             NationMapPayload.ClaimView[] claims) {
-        graphics.fill(0, 0, width, TOP_BAR, 0xC0000000);
-        graphics.drawString(font, getTitle(), 6, 5, 0xFFFFFF);
+        graphics.fill(0, 0, width, TOP_BAR, CampaignStyle.CLOTH);
+        graphics.drawString(font, getTitle(), 6, 5, CampaignStyle.GOLD);
         Component info = Component.translatable("screen.modserver.nation_map.counts", nations.length, claims.length);
-        graphics.drawString(font, info, width - font.width(info) - 6, 5, 0xB0B0B0);
+        graphics.drawString(font, info, width - font.width(info) - 6, 5, CampaignStyle.IVORY);
 
         Component hint = Component.translatable("screen.modserver.nation_map.controls");
-        graphics.fill(0, height - 12, width, height, 0xC0000000);
-        graphics.drawString(font, hint, 6, height - 10, 0x909090);
+        graphics.fill(0, height - 12, width, height, CampaignStyle.CLOTH);
+        graphics.drawString(font, hint, 6, height - 10, CampaignStyle.IVORY);
     }
 
     private void drawMapArea(GuiGraphics graphics, NationMapPayload.NationView[] nations,
@@ -131,11 +132,11 @@ public class NationMapScreen extends Screen {
         int right = width;
         int bottom = height - 12;
 
-        graphics.fill(left, top, right, bottom, 0xFF101418);
+        CampaignStyle.paper(graphics, left, top, right - left, bottom - top);
 
-        if (nations.length == 0 && NationMapData.battles().isEmpty()) {
+        if (nations.length == 0 && NationMapData.battles().isEmpty() && NationMapData.oilFields().isEmpty()) {
             graphics.drawCenteredString(font, Component.translatable("screen.modserver.nation_map.empty"), (left + right) / 2,
-                    (top + bottom) / 2 - 6, 0x808080);
+                    (top + bottom) / 2 - 6, CampaignStyle.INK);
             return;
         }
 
@@ -145,7 +146,7 @@ public class NationMapScreen extends Screen {
         graphics.enableScissor(left, top, right, bottom);
 
         // Grid every 8 chunks.
-        int gridColor = 0x20FFFFFF;
+        int gridColor = 0x30453522;
         int firstGridX = (int) Math.floor((left - originX) / cellSize / 8.0) * 8;
         for (int gx = firstGridX; originX + gx * cellSize < right; gx += 8) {
             int px = (int) (originX + gx * cellSize);
@@ -190,6 +191,15 @@ public class NationMapScreen extends Screen {
                 graphics.fill(x + k, y + k, x + k + 1, y + k + 1, 0xFFFFF1DA);
                 graphics.fill(x + cellSize - 1 - k, y + k, x + cellSize - k, y + k + 1, 0xFFFFF1DA);
             }
+        }
+
+        for (long key : NationMapData.oilFields()) {
+            int px = (int)Math.floor(originX + com.modserver.claim.Claim.unpackX(key) * cellSize);
+            int py = (int)Math.floor(originZ + com.modserver.claim.Claim.unpackZ(key) * cellSize);
+            if (px + cellSize < left || px > right || py + cellSize < top || py > bottom) continue;
+            graphics.renderOutline(px, py, cellSize, cellSize, OilMapMarker.GOLD);
+            int h = Math.clamp(cellSize, 9, 18);
+            OilMapMarker.draw(graphics, px + cellSize / 2, py + cellSize / 2 - h, h);
         }
 
         // Capitals.
@@ -237,26 +247,31 @@ public class NationMapScreen extends Screen {
 
     private void drawPanel(GuiGraphics graphics, NationMapPayload.NationView[] nations,
                            int mouseX, int mouseY) {
-        graphics.fill(0, TOP_BAR, PANEL_WIDTH, height - 12, 0xE0101418);
+        graphics.fill(0, TOP_BAR, PANEL_WIDTH, height - 12, CampaignStyle.OLIVE);
+        graphics.fill(PANEL_WIDTH - 1, TOP_BAR, PANEL_WIDTH, height - 12, CampaignStyle.BRASS);
 
         List<NationMapPayload.NationView> sorted = new ArrayList<>(List.of(nations));
         sorted.sort(Comparator.comparingInt(NationMapPayload.NationView::chunkCount).reversed());
 
         int y = TOP_BAR + 6;
         for (NationMapPayload.NationView nation : sorted) {
-            if (y > height - 62) {
+            if (y > height - (NationMapData.oilFields().isEmpty() ? 62 : 75)) {
                 break;
             }
             graphics.fill(6, y, 14, y + 8, 0xFF000000 | (nation.color() & 0xFFFFFF));
             graphics.drawString(font, nation.name(), 20, y, 0xFFFFFF);
             String chunks = NationMapData.chunkCount(indexOf(nations, nation)) + "";
-            graphics.drawString(font, chunks, PANEL_WIDTH - 6 - font.width(chunks), y, 0x9A9A9A);
+            graphics.drawString(font, chunks, PANEL_WIDTH - 6 - font.width(chunks), y, CampaignStyle.GOLD);
 
             if (mouseX < PANEL_WIDTH && mouseY >= y && mouseY <= y + 9
                     && mouseX >= 6 && mouseX <= 14) {
                 graphics.fill(6, y, 14, y + 8, 0x80FFFFFF);
             }
             y += 11;
+        }
+        if (!NationMapData.oilFields().isEmpty()) {
+            OilMapMarker.draw(graphics, 12, height - 68, 14);
+            graphics.drawString(font, Component.translatable("map.modserver.oil"), 20, height - 65, CampaignStyle.IVORY, false);
         }
         drawLegendEntry(graphics, height - 52, 0xFFE23E4D, "battle");
         drawLegendEntry(graphics, height - 39, NationMapData.Border.INTERNATIONAL_COLOR, "shared");

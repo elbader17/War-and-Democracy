@@ -1,5 +1,8 @@
 package com.modserver.data;
 
+import com.modserver.military.TroopCounts;
+import com.modserver.military.TroopTransfer;
+import com.modserver.military.TroopBranch;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -42,6 +45,7 @@ public final class ModServerStore {
     private static final String NATIONS_FILE = "nations.json";
     private static final String CLAIMS_FILE = "claims.json";
     private static final String DISPUTES_FILE = "disputes.json";
+    private static final String PENDING_SAVE = "pending-save.json";
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -59,6 +63,10 @@ public final class ModServerStore {
     public void load(NationManager nations, ClaimIndex claims, DisputeIndex disputes)
             throws IOException {
         Files.createDirectories(directory);
+
+        // Complete an interrupted checkpoint before reading the separate human-editable files.
+        JsonObject pending = readJson(directory.resolve(PENDING_SAVE));
+        if (pending != null) finishCheckpoint(pending);
 
         JsonObject nationsRoot = readJson(directory.resolve(NATIONS_FILE));
         if (nationsRoot != null) {
@@ -112,7 +120,6 @@ public final class ModServerStore {
             nationsArray.add(writeNation(nation));
         }
         nationsRoot.add("nations", nationsArray);
-        writeJson(directory.resolve(NATIONS_FILE), nationsRoot);
 
         JsonObject claimsRoot = new JsonObject();
         claimsRoot.addProperty("schemaVersion", SCHEMA_VERSION);
@@ -121,7 +128,6 @@ public final class ModServerStore {
             claimsArray.add(writeClaim(claim));
         }
         claimsRoot.add("claims", claimsArray);
-        writeJson(directory.resolve(CLAIMS_FILE), claimsRoot);
 
         JsonObject disputesRoot = new JsonObject();
         disputesRoot.addProperty("schemaVersion", SCHEMA_VERSION);
@@ -130,7 +136,20 @@ public final class ModServerStore {
             disputesArray.add(writeDispute(dispute));
         }
         disputesRoot.add("disputes", disputesArray);
-        writeJson(directory.resolve(DISPUTES_FILE), disputesRoot);
+        JsonObject checkpoint = new JsonObject();
+        checkpoint.add(NATIONS_FILE, nationsRoot);
+        checkpoint.add(CLAIMS_FILE, claimsRoot);
+        checkpoint.add(DISPUTES_FILE, disputesRoot);
+        // Field armies and the garrisons they left must always come from the same save.
+        writeJson(directory.resolve(PENDING_SAVE), checkpoint);
+        finishCheckpoint(checkpoint);
+    }
+
+    private void finishCheckpoint(JsonObject checkpoint) throws IOException {
+        for (String name : List.of(NATIONS_FILE, CLAIMS_FILE, DISPUTES_FILE)) {
+            writeJson(directory.resolve(name), checkpoint.getAsJsonObject(name));
+        }
+        Files.delete(directory.resolve(PENDING_SAVE));
     }
 
     // ------------------------------------------------------------------ nations
@@ -144,12 +163,18 @@ public final class ModServerStore {
 
             Nation nation = new Nation(id, name, owner, color, createdAt);
 
+            if (json.has("preamble")) nation.setPreamble(json.get("preamble").getAsString());
+            if (json.has("doctrines")) nation.setDoctrines(json.get("doctrines").getAsString());
             if (json.has("capital")) {
                 JsonObject capital = json.getAsJsonObject("capital");
                 nation.setCapital(capital.get("dimension").getAsString(),
                         capital.get("x").getAsInt(), capital.get("z").getAsInt());
             }
 
+            if (json.has("treasuryChest")) {
+                String dimension = json.has("treasuryDimension") ? json.get("treasuryDimension").getAsString() : nation.capitalDimension();
+                if (dimension != null) nation.setTreasuryChest(dimension, json.get("treasuryChest").getAsLong());
+            }
             if (json.has("members")) {
                 JsonObject members = json.getAsJsonObject("members");
                 for (Map.Entry<String, JsonElement> entry : members.entrySet()) {
@@ -172,6 +197,26 @@ public final class ModServerStore {
                 }
             }
 
+            nation.setEnvoy(json.has("envoy") && json.get("envoy").getAsBoolean());
+            if (json.has("council")) for (var row : json.getAsJsonArray("council")) {
+                try {
+                    nation.file(GSON.fromJson(row, com.modserver.council.CouncilPost.class));
+                } catch (RuntimeException e) {
+                    System.err.println("Invalid council dispatch for " + id + ": " + e.getMessage());
+                }
+            }
+            if (json.has("transfers")) for (var entry : json.getAsJsonArray("transfers")) {
+                try {
+                    var row = entry.getAsJsonObject();
+                    nation.addTransfer(new TroopTransfer(UUID.fromString(row.get("recipient").getAsString()),
+                            row.get("dimension").getAsString(), row.get("fromX").getAsInt(), row.get("fromZ").getAsInt(),
+                            row.get("toX").getAsInt(), row.get("toZ").getAsInt(), readForces(row, "armies", 0),
+                            row.get("dueAt").getAsLong(), TroopTransfer.Leg.valueOf(row.get("leg").getAsString()),
+                            row.has("secondsPerChunk") ? row.get("secondsPerChunk").getAsInt() : 5));
+                } catch (RuntimeException e) {
+                    System.err.println("[modserver] Invalid shipment for " + id + ": " + e.getMessage());
+                }
+            }
             return nation;
         } catch (RuntimeException e) {
             System.err.println("[modserver] Nation ignored due to invalid JSON: " + e.getMessage());
@@ -186,6 +231,12 @@ public final class ModServerStore {
         json.addProperty("owner", nation.owner().toString());
         json.addProperty("color", nation.color());
         json.addProperty("createdAt", nation.createdAt());
+        json.addProperty("preamble", nation.preamble());
+        json.addProperty("doctrines", nation.doctrines());
+        if (nation.treasuryChest() != null) {
+            json.addProperty("treasuryChest", nation.treasuryChest());
+            json.addProperty("treasuryDimension", nation.treasuryDimension());
+        }
 
         if (nation.hasCapital()) {
             JsonObject capital = new JsonObject();
@@ -204,9 +255,7 @@ public final class ModServerStore {
         JsonObject economy = new JsonObject();
         NationEconomy eco = nation.economy();
         economy.addProperty("balance", eco.balance());
-        economy.addProperty("defenseDebt", eco.defenseDebt());
-        economy.addProperty("defended", eco.isDefended());
-        economy.addProperty("garrisonPoints", eco.garrisonPoints());
+        writeForces(economy, "garrisonPoints", eco.reserveForces());
         economy.addProperty("farmLevel", eco.farmLevel());
         economy.addProperty("garrisonLevel", eco.garrisonLevel());
         economy.addProperty("treasuryLevel", eco.treasuryLevel());
@@ -218,6 +267,24 @@ public final class ModServerStore {
             relations.addProperty(entry.getKey().toString(), entry.getValue().name());
         }
         json.add("relations", relations);
+        if (nation.isEnvoy()) json.addProperty("envoy", true);
+        if (!nation.register().isEmpty()) json.add("council", GSON.toJsonTree(nation.register()));
+        var transfers = new JsonArray();
+        for (var trip : nation.transfers()) {
+            var row = new JsonObject();
+            row.addProperty("recipient", trip.recipient().toString());
+            row.addProperty("dimension", trip.dimension());
+            row.addProperty("fromX", trip.fromX());
+            row.addProperty("fromZ", trip.fromZ());
+            row.addProperty("toX", trip.toX());
+            row.addProperty("toZ", trip.toZ());
+            row.addProperty("dueAt", trip.dueAt());
+            row.addProperty("secondsPerChunk", trip.secondsPerChunk());
+            row.addProperty("leg", trip.leg().name());
+            writeForces(row, "armies", trip.troops());
+            transfers.add(row);
+        }
+        json.add("transfers", transfers);
 
         return json;
     }
@@ -228,15 +295,7 @@ public final class ModServerStore {
             if (json.has("balance")) {
                 eco.setBalance(json.get("balance").getAsLong());
             }
-            if (json.has("defenseDebt")) {
-                eco.setDefenseDebt(json.get("defenseDebt").getAsLong());
-            }
-            if (json.has("defended")) {
-                eco.setDefended(json.get("defended").getAsBoolean());
-            }
-            if (json.has("garrisonPoints")) {
-                eco.setGarrisonPoints(json.get("garrisonPoints").getAsInt());
-            }
+            eco.setReserveForces(readForces(json, "garrisonPoints", 0));
             if (json.has("farmLevel")) {
                 eco.setFarmLevel(json.get("farmLevel").getAsInt());
             }
@@ -272,7 +331,11 @@ public final class ModServerStore {
             int z = json.get("z").getAsInt();
             UUID nation = UUID.fromString(json.get("nation").getAsString());
             long createdAt = json.has("createdAt") ? json.get("createdAt").getAsLong() : 0L;
-            return new Claim(dimension, x, z, nation, createdAt);
+            Claim claim = new Claim(dimension, x, z, nation, createdAt);
+            claim.setForces(readForces(json, "armies", 1));
+            if (json.has("nuclearMissiles")) claim.setNuclearMissiles(Math.max(0, json.get("nuclearMissiles").getAsInt()));
+            if (json.has("missiles")) claim.setMissiles(Math.max(0, json.get("missiles").getAsInt()));
+            return claim;
         } catch (RuntimeException e) {
             System.err.println("[modserver] Claim ignored due to invalid JSON: " + e.getMessage());
             return null;
@@ -285,6 +348,9 @@ public final class ModServerStore {
         json.addProperty("x", claim.chunkX());
         json.addProperty("z", claim.chunkZ());
         json.addProperty("nation", claim.nationId().toString());
+        writeForces(json, "armies", claim.forces());
+        json.addProperty("missiles", claim.missiles());
+        json.addProperty("nuclearMissiles", claim.nuclearMissiles());
         json.addProperty("createdAt", claim.createdAt());
         return json;
     }
@@ -315,6 +381,12 @@ public final class ModServerStore {
             if (json.has("resolvedBy")) {
                 dispute.setResolvedBy(json.get("resolvedBy").getAsString());
             }
+            if (dispute.status().isOpen() && json.has("assault")) {
+                JsonObject force = json.getAsJsonObject("assault");
+                var troops = readForces(force, "attackers", 0);
+                if (troops.total() > 0) dispute.setAssault(new Dispute.Assault(force.get("originX").getAsInt(),
+                        force.get("originZ").getAsInt(), troops, force.get("nextDuel").getAsLong()));
+            }
             return dispute;
         } catch (RuntimeException e) {
             System.err.println("[modserver] Dispute ignored due to invalid JSON: " + e.getMessage());
@@ -335,10 +407,32 @@ public final class ModServerStore {
         json.addProperty("status", dispute.status().name());
         json.addProperty("resolvedAt", dispute.resolvedAt());
         json.addProperty("resolvedBy", dispute.resolvedBy());
+        if (dispute.assault() != null) {
+            var force = dispute.assault();
+            JsonObject order = new JsonObject();
+            order.addProperty("originX", force.originX());
+            order.addProperty("originZ", force.originZ());
+            writeForces(order, "attackers", force.forces());
+            order.addProperty("nextDuel", force.nextDuel());
+            json.add("assault", order);
+        }
         return json;
     }
 
     // -------------------------------------------------------------------- util
+    private static TroopCounts readForces(JsonObject json, String legacyKey, int fallback) {
+        if (!json.has("troops")) return new TroopCounts(json.has(legacyKey) ? Math.max(0, json.get(legacyKey).getAsInt()) : fallback, 0, 0);
+        var troops = json.getAsJsonObject("troops");
+        return new TroopCounts(troops.get("ground").getAsInt(), troops.get("air").getAsInt(), troops.get("naval").getAsInt());
+    }
+
+    private static void writeForces(JsonObject json, String totalKey, TroopCounts forces) {
+        json.addProperty(totalKey, forces.total());
+        var troops = new JsonObject();
+        for (var branch : TroopBranch.ALL) troops.addProperty(branch.id, forces.count(branch));
+        json.add("troops", troops);
+    }
+
     private static JsonObject readJson(Path path) throws IOException {
         if (!Files.exists(path)) {
             return null;

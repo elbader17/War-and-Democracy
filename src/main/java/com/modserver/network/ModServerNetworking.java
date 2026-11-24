@@ -40,7 +40,25 @@ public final class ModServerNetworking {
         // which speaks the vanilla protocol). NeoForge aborts the negotiation if the
         // server requires a payload the client does not support.
         PayloadRegistrar registrar = event.registrar(PROTOCOL_VERSION).optional();
-        registrar.playToClient(DisputeMapPayload.TYPE, DisputeMapPayload.STREAM_CODEC,
+        registrar.versioned("2").playToClient(MissileFlight.TYPE, MissileFlight.CODEC,
+                (flight, context) -> ModServerClientNetworking.missile(flight, false));
+        registrar.playToClient(MissileFlight.Launch.TYPE, MissileFlight.Launch.CODEC,
+                (launch, context) -> ModServerClientNetworking.missile(launch.flight(), true));
+        registrar.versioned("7").playToClient(TacticalBoard.TYPE, TacticalBoard.CODEC,
+                (view, context) -> ModServerClientNetworking.tactics(view));
+        registrar.versioned("7").playToServer(TacticalBoard.Request.TYPE, TacticalBoard.Request.CODEC,
+                (request, context) -> com.modserver.military.Tactics.request((ServerPlayer)context.player(), request));
+        registrar.playToServer(GovernmentRequest.TYPE, GovernmentRequest.CODEC, (request, context) ->
+                com.modserver.government.Government.request((ServerPlayer) context.player(), request.arguments()));
+        registrar.playToClient(ReserveChests.TYPE, ReserveChests.CODEC,
+                (view, context) -> ModServerClientNetworking.reserveChests(view));
+        registrar.playToClient(CouncilView.TYPE, CouncilView.CODEC,
+                (view, context) -> ModServerClientNetworking.council(view));
+        registrar.playToClient(GovernmentView.TYPE, GovernmentView.CODEC,
+                (view, context) -> ModServerClientNetworking.government(view));
+        registrar.playToClient(OilMapPayload.TYPE, OilMapPayload.CODEC,
+                (snapshot, context) -> ModServerClientNetworking.handleMapData(snapshot));
+        registrar.versioned("3").playToClient(DisputeMapPayload.TYPE, DisputeMapPayload.STREAM_CODEC,
                 (payload, context) -> ModServerClientNetworking.handleMapData(payload));
         registrar.playToClient(MapTerritoryInfo.TYPE, MapTerritoryInfo.STREAM_CODEC,
                 (payload, context) -> ModServerClientNetworking.territoryInfo(payload));

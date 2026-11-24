@@ -18,6 +18,10 @@ authors="${mod_authors}" #optional
 
 description='''${mod_description}'''
 
+[[mixins]]
+    config="modserver.diesel.mixins.json"
+    requiredMods=["createdieselgenerators"]
+
 [[dependencies.${mod_id}]] #optional
     modId="neoforge" #mandatory
     type="required" #mandatory

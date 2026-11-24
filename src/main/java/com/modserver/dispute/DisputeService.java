@@ -22,8 +22,7 @@ import java.util.UUID;
  *   <li>A nation opens a dispute over a chunk of another nation (N minutes defense
  *       window).</li>
  *   <li>The defending nation can <b>defend</b>: the chunk stays with it.</li>
- *   <li>If nobody defends before the window expires, the chunk goes to the
- *       challenging nation.</li>
+ *   <li>When a battle expires, the current occupying force keeps the chunk.</li>
  *   <li>An administrator can resolve the dispute manually at any time.</li>
  * </ol>
  */
@@ -156,6 +155,7 @@ public final class DisputeService {
         if (!dispute.defenderNationId().equals(defenderNation)) {
             return Outcome.fail("That chunk does not belong to your nation");
         }
+        if (dispute.assault() != null) return Outcome.fail("Armies are fighting for this chunk");
         if (gameTime > dispute.deadline()) {
             return Outcome.fail("The defense window has already expired");
         }
@@ -173,7 +173,7 @@ public final class DisputeService {
     /**
      * Resolves the disputes whose defense window has expired.
      *
-     * <p>The chunk goes to the challenging nation. If the chunk is no longer claimed
+     * <p>The occupying army keeps the chunk. If the chunk is no longer claimed
      * (the defending nation released it), the dispute is cancelled.</p>
      *
      * @return the disputes resolved in this pass
@@ -181,7 +181,7 @@ public final class DisputeService {
     public List<Dispute> expire(long gameTime) {
         List<Dispute> resolved = new ArrayList<>();
         for (Dispute dispute : disputes.open()) {
-            if (gameTime <= dispute.deadline()) {
+            if (dispute.assault() != null || gameTime <= dispute.deadline()) {
                 continue;
             }
             Claim claim = claims.claimAt(dispute.dimension(), dispute.chunkX(), dispute.chunkZ());
@@ -193,8 +193,7 @@ public final class DisputeService {
                 resolved.add(dispute);
                 continue;
             }
-            claims.transfer(claim, dispute.challengerNationId());
-            dispute.setStatus(DisputeStatus.TRANSFERRED);
+            dispute.setStatus(DisputeStatus.KEPT);
             dispute.setResolvedAt(gameTime);
             dispute.setResolvedBy("expiration");
             disputes.reindex(dispute);
@@ -227,6 +226,7 @@ public final class DisputeService {
         }
 
         if (keep) {
+            recall(dispute);
             dispute.setStatus(DisputeStatus.KEPT);
             dispute.setResolvedAt(gameTime);
             dispute.setResolvedBy("admin");
@@ -236,11 +236,16 @@ public final class DisputeService {
 
         Claim claim = claims.claimAt(dispute.dimension(), dispute.chunkX(), dispute.chunkZ());
         if (claim == null) {
+            recall(dispute);
             dispute.setStatus(DisputeStatus.CANCELLED);
             dispute.setResolvedAt(gameTime);
             dispute.setResolvedBy("admin");
             disputes.reindex(dispute);
             return Outcome.ok("Dispute #" + id + " cancelled: the chunk was no longer claimed", dispute);
+        }
+        if (dispute.assault() != null) {
+            claim.setForces(dispute.assault().forces());
+            dispute.setAssault(null);
         }
         claims.transfer(claim, dispute.challengerNationId());
         dispute.setStatus(DisputeStatus.TRANSFERRED);
@@ -259,9 +264,29 @@ public final class DisputeService {
         }
         dispute.setStatus(DisputeStatus.CANCELLED);
         dispute.setResolvedAt(gameTime);
+        recall(dispute);
         dispute.setResolvedBy(reason);
         disputes.reindex(dispute);
         return dispute;
+    }
+
+    private void recall(Dispute dispute) {
+        var force = dispute.assault();
+        if (force == null) return;
+        dispute.setAssault(null);
+        var returning = force.forces();
+        var home = claims.claimAt(dispute.dimension(), force.originX(), force.originZ());
+        if (home != null && home.nationId().equals(dispute.challengerNationId())) {
+            var housed = returning.take(Math.min(returning.total(), Integer.MAX_VALUE - home.armies()), null);
+            home.setForces(home.forces().plus(housed));
+            returning = returning.minus(housed);
+        }
+        var country = nations.byId(dispute.challengerNationId()).orElse(null);
+        if (returning.total() > 0 && country != null) {
+            var reserve = country.economy();
+            var housed = returning.take(Math.min(returning.total(), Integer.MAX_VALUE - reserve.garrisonPoints()), null);
+            reserve.setReserveForces(reserve.reserveForces().plus(housed));
+        }
     }
 
     // ------------------------------------------------------------------ utility

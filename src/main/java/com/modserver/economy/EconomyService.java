@@ -1,15 +1,10 @@
 package com.modserver.economy;
 
-import com.modserver.claim.Claim;
 import com.modserver.claim.ClaimIndex;
 import com.modserver.nation.Nation;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-
 /**
- * Economic rules of the nations: income, maintenance, defense and investments.
+ * Economic rules for national income and investments.
  *
  * <p>Pure domain class: it does not depend on Minecraft, only on the nation and the
  * claim index. The full cycle (closing the economic day) can be verified in the
@@ -17,12 +12,8 @@ import java.util.List;
  *
  * <p><b>The game loop:</b></p>
  * <ol>
- *   <li>Maintenance is charged for the chunks and the investments. If the treasury
- *       cannot cover it, the nation loses the chunks farthest from its capital until it can.</li>
- *   <li>Income comes in: each chunk generates, plus the BONUSES of the farms.</li>
- *   <li>The defense is charged, and it **grows with the size of the territory** (base + per
- *       chunk + a quadratic term). If it cannot be paid, the nation is left
- *       <b>unprotected</b>: it accumulates debt and cannot defend its disputes.</li>
+ *   <li>Each claimed chunk earns income, including any farm bonus.</li>
+ *   <li>The garrison adds one ground troop to the reserve per level.</li>
  *   <li>The treasury pays interest on the balance.</li>
  * </ol>
  */
@@ -41,8 +32,7 @@ public final class EconomyService {
     }
 
     /** Summary of the close of an economic day. */
-    public record DailyReport(long income, long upkeep, long defenseCost, long interest,
-                              int chunksLost, boolean defended, long balance, String message) {
+    public record DailyReport(long income, long interest, long balance, String message) {
     }
 
     private final ClaimIndex claims;
@@ -53,42 +43,15 @@ public final class EconomyService {
 
     // ------------------------------------------------------------------ daily cycle
 
-    /** Closes the economic day of a nation (charges, income and defense). */
+    /** Credits income and interest and delivers the day's reinforcements. */
     public DailyReport closeDay(Nation nation, EconomyRules rules, long gameTime) {
         NationEconomy economy = nation.economy();
-        int chunkCount = claims.chunkCount(nation.id());
-
-        // 1. Maintenance: charged per chunk and for the investments.
-        long upkeep = rules.dailyUpkeep(chunkCount, economy);
-        List<Claim> lost = new ArrayList<>();
-        long charged = chargeUpkeep(nation, rules, upkeep, lost);
-        economy.setBalance(economy.balance() - charged);
-        int chunksLost = lost.size();
-        chunkCount -= chunksLost;
-
-        // 2. Income: every chunk produces, and the farms multiply it.
-        long income = rules.dailyIncome(chunkCount, economy);
+        long income = rules.dailyIncome(claims.chunkCount(nation.id()), economy);
         economy.setBalance(economy.balance() + income);
 
-        // 3. Defense: expensive if the territory is large. If unpaid, the nation is unprotected.
-        long defenseCost = rules.defenseCost(chunkCount);
-        long paid = 0L;
-        boolean defended;
-        if (economy.balance() >= economy.defenseDebt() + defenseCost) {
-            paid = economy.defenseDebt() + defenseCost;
-            economy.setDefenseDebt(0L);
-            economy.setBalance(economy.balance() - paid);
-            economy.setDefended(true);
-            // The garrison is restored when the defense is paid.
-            economy.setGarrisonPoints(economy.garrisonPoints() + economy.garrisonIncome());
-            defended = true;
-        } else {
-            economy.setDefenseDebt(economy.defenseDebt() + defenseCost);
-            economy.setDefended(false);
-            defended = false;
-        }
+        economy.replenishGarrison();
 
-        // 4. Treasury interest (only over a positive balance).
+        // Treasury interest (only over a positive balance).
         long interest = 0L;
         if (economy.balance() > 0 && economy.interestPercent() > 0) {
             interest = economy.balance() * economy.interestPercent() / 100L;
@@ -97,51 +60,8 @@ public final class EconomyService {
 
         economy.setLastDay(gameTime);
 
-        String message = "Economic day of " + nation.name() + ": +" + coins(income)
-                + " in income, -" + coins(charged) + " in maintenance, -"
-                + coins(defenseCost) + " in defense"
-                + (chunksLost > 0 ? ", " + chunksLost + " chunks lost" : "")
-                + (defended ? ", defense paid" : ", UNPROTECTED (debt " + coins(economy.defenseDebt()) + ")");
-        return new DailyReport(income, charged, defenseCost, interest, chunksLost, defended,
-                economy.balance(), message);
-    }
-
-    /**
-     * Charges the maintenance: if the balance is not enough, the chunks farthest
-     * from the capital are lost until it can be paid.
-     *
-     * <p>Losing a chunk reduces the upkeep by what it cost to maintain it, so the
-     * nation stabilizes at a size it can afford. If the balance still ends up
-     * negative (for example, because of the investments upkeep), the debt
-     * prevents paying the defense and the nation is left unprotected.</p>
-     *
-     * @return the upkeep finally charged
-     */
-    private long chargeUpkeep(Nation nation, EconomyRules rules, long upkeep, List<Claim> lost) {
-        NationEconomy economy = nation.economy();
-        if (economy.balance() >= upkeep) {
-            return upkeep;
-        }
-
-        List<Claim> owned = new ArrayList<>(claims.claimsOf(nation.id()));
-        owned.sort(Comparator.comparingLong((Claim claim) -> distanceToCapital(nation, claim)).reversed());
-
-        for (Claim claim : owned) {
-            if (economy.balance() >= upkeep) {
-                break;
-            }
-            claims.release(claim.dimension(), claim.chunkX(), claim.chunkZ());
-            lost.add(claim);
-            upkeep -= rules.claimUpkeep();
-        }
-        return Math.max(0L, upkeep);
-    }
-
-    /** Distance (Chebyshev) from the claim to the center of the nation (capital or origin). */
-    private long distanceToCapital(Nation nation, Claim claim) {
-        int centerX = nation.hasCapital() ? nation.capitalX() : 0;
-        int centerZ = nation.hasCapital() ? nation.capitalZ() : 0;
-        return Math.max(Math.abs(claim.chunkX() - centerX), Math.abs(claim.chunkZ() - centerZ));
+        String message = "Economic day of " + nation.name() + ": +" + coins(income) + " in income";
+        return new DailyReport(income, interest, economy.balance(), message);
     }
 
     // ------------------------------------------------------------------ investments
@@ -179,48 +99,6 @@ public final class EconomyService {
             case GARRISON -> economy.setGarrisonLevel(level);
             case TREASURY -> economy.setTreasuryLevel(level);
         }
-    }
-
-    // -------------------------------------------------------------------- defense
-
-    /** Pays the pending defense (and today's one) to be protected again. */
-    public Outcome payDefense(Nation nation, EconomyRules rules) {
-        NationEconomy economy = nation.economy();
-        int chunkCount = claims.chunkCount(nation.id());
-        long due = economy.defenseDebt() + rules.defenseCost(chunkCount);
-        if (economy.balance() < due) {
-            return Outcome.fail("Today's defense costs " + coins(due) + " and you only have "
-                    + coins(economy.balance()));
-        }
-        economy.setBalance(economy.balance() - due);
-        economy.setDefenseDebt(0L);
-        economy.setDefended(true);
-        economy.setGarrisonPoints(economy.garrisonPoints() + economy.garrisonIncome());
-        return Outcome.ok("You have paid the defense (" + coins(due) + "). Your nation is protected");
-    }
-
-    /** How much it costs to defend the nation today (including debt). */
-    public long pendingDefenseCost(Nation nation, EconomyRules rules) {
-        return nation.economy().defenseDebt() + rules.defenseCost(claims.chunkCount(nation.id()));
-    }
-
-    /** An unprotected nation cannot defend its disputes. */
-    public boolean canDefend(Nation nation) {
-        return nation.economy().isDefended();
-    }
-
-    /**
-     * The garrison defends a dispute without any player being connected.
-     *
-     * @return true if the garrison covered the defense
-     */
-    public boolean tryGarrisonDefense(Nation nation) {
-        NationEconomy economy = nation.economy();
-        if (!economy.isDefended() || economy.garrisonPoints() <= 0) {
-            return false;
-        }
-        economy.setGarrisonPoints(economy.garrisonPoints() - 1);
-        return true;
     }
 
     // --------------------------------------------------------------------- attack

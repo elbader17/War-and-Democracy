@@ -1,10 +1,11 @@
 package com.modserver.economy;
 
+import com.modserver.military.TroopCounts;
 /**
- * Economy of a nation: treasury, defense debt and investments.
+ * Economy of a nation: treasury, reserves and investments.
  *
  * <p>Amounts are stored in <b>cents</b> of currency (100 cents = 1 coin)
- * so that percentages (interest, upkeep) are not truncated.</p>
+ * so that percentages (income bonuses and interest) are not truncated.</p>
  */
 public final class NationEconomy {
 
@@ -13,12 +14,8 @@ public final class NationEconomy {
 
     /** Treasury balance (may be negative if money is owed). */
     private long balance;
-    /** Pending defense payment in coins. */
-    private long defenseDebt;
-    /** Whether the nation has its defense paid. */
-    private boolean defended = true;
-    /** Available garrison points (defend disputes without a player). */
-    private int garrisonPoints;
+    /** Troops available to deploy on the tactical map. */
+    private TroopCounts reserveForces = TroopCounts.EMPTY;
     /** Investment levels (0 = not invested). */
     private int farmLevel;
     private int garrisonLevel;
@@ -46,29 +43,20 @@ public final class NationEconomy {
         return balance / (double) CENTS;
     }
 
-    public long defenseDebt() {
-        return defenseDebt;
-    }
-
-    public void setDefenseDebt(long defenseDebt) {
-        this.defenseDebt = defenseDebt;
-    }
-
-    /** The nation has its defense paid and can defend its chunks. */
-    public boolean isDefended() {
-        return defended;
-    }
-
-    public void setDefended(boolean defended) {
-        this.defended = defended;
-    }
-
     public int garrisonPoints() {
-        return garrisonPoints;
+        return reserveForces.total();
     }
 
     public void setGarrisonPoints(int garrisonPoints) {
-        this.garrisonPoints = garrisonPoints;
+        reserveForces = new TroopCounts(garrisonPoints, 0, 0);
+    }
+
+    public TroopCounts reserveForces() { return reserveForces; }
+    public void setReserveForces(TroopCounts value) { reserveForces = value; }
+
+    public void replenishGarrison() {
+        int income = Math.min(Integer.MAX_VALUE - garrisonPoints(), garrisonIncome());
+        reserveForces = reserveForces.plus(new TroopCounts(income, 0, 0));
     }
 
     public int farmLevel() {
@@ -108,7 +96,7 @@ public final class NationEconomy {
         return 100L + 25L * farmLevel;
     }
 
-    /** Garrison points restored when the defense is paid. */
+    /** Daily ground troops supplied by the garrison investment. */
     public int garrisonIncome() {
         return garrisonLevel;
     }

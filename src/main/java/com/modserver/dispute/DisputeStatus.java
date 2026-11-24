@@ -6,7 +6,8 @@ package com.modserver.dispute;
  * <p>State machine:</p>
  * <pre>
  *   OPEN --defender--> DEFENDED   (the chunk stays with the defender)
- *   OPEN --expires---> TRANSFERRED (the chunk goes to the challenger)
+ *   OPEN --expires---> KEPT (the defender remains in possession)
+ *   OPEN --dice conquest--> TRANSFERRED
  *   OPEN --admin keep--> KEPT     (the chunk stays with the defender)
  *   OPEN --admin transfer--> TRANSFERRED
  *   OPEN --cancelled--> CANCELLED (the chunk was released or no longer exists)

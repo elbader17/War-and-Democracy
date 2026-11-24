@@ -78,7 +78,7 @@ sleep 1
 
 # The capital of each nation is the first chunk of its territory.
 rcon "execute as AlfaBot run tp AlfaBot 56 64 56" >/dev/null
-rcon "execute as BetaBot run tp BetaBot -56 64 56" >/dev/null
+rcon "execute as BetaBot run tp BetaBot 40 64 56" >/dev/null
 rcon "execute as GammaBot run tp GammaBot 56 64 -56" >/dev/null
 sleep 1
 
@@ -102,8 +102,8 @@ claim_area() {
 }
 # Alfa: chunks (3,3) (4,3) (5,3) (3,4) (4,4) (5,4) -> a 3x2 block.
 claim_area AlfaBot "56 64 56" "72 64 56" "88 64 56" "56 64 72" "72 64 72" "88 64 72"
-# Beta: chunks (-4,3) (-5,3) (-6,3) (-4,4) (-5,4) (-6,4) -> a 3x2 block.
-claim_area BetaBot "-56 64 56" "-72 64 56" "-88 64 56" "-56 64 72" "-72 64 72" "-88 64 72"
+# Beta shares its eastern edge with Alfa, with its capital at chunk (2,3).
+claim_area BetaBot "40 64 56" "24 64 56" "8 64 56" "40 64 72" "24 64 72" "8 64 72"
 # Gamma: chunks (3,-4) (4,-4) (5,-4) (3,-5) (4,-5) (5,-5) -> a 3x2 block.
 claim_area GammaBot "56 64 -56" "72 64 -56" "88 64 -56" "56 64 -72" "72 64 -72" "88 64 -72"
 
@@ -121,7 +121,11 @@ for i in $(seq 1 120); do
 done
 
 say "==> [4/6] Beta attacks a chunk of Alfa (the dispute is opened and warned)"
-rcon "execute as BetaBot run nation attack 3 3" | sed 's/^/      /' | tee -a "$DEMO_LOG"
+rcon "execute as AlfaBot run nation tactics buy 3" >/dev/null
+rcon "execute as AlfaBot run nation tactics deploy 3 3 3" >/dev/null
+rcon "execute as BetaBot run nation tactics buy 3" >/dev/null
+rcon "execute as BetaBot run nation tactics deploy 2 3 3" >/dev/null
+rcon "execute as BetaBot run nation tactics roll 2 3 3 3 1" | sed 's/^/      /' | tee -a "$DEMO_LOG"
 sleep 3
 rcon "nation disputes" | sed 's/^/      /' | tee -a "$DEMO_LOG"
 

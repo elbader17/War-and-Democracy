@@ -4,6 +4,7 @@ import com.modserver.command.ModServerCommands;
 import com.modserver.claim.Claim;
 import com.modserver.network.BorderedMapPayload;
 import com.modserver.network.DisputeMapPayload;
+import com.modserver.network.OilMapPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -47,6 +48,7 @@ public final class NationMapData {
             return international ? INTERNATIONAL_COLOR : OUTER_COLOR;
         }
     }
+    private static List<Long> oilFields = List.of();
     private static List<Border> borders = List.of();
     private static List<DisputeMapPayload.Battle> battles = List.of();
     private static ResourceKey<Level> dimension = Level.OVERWORLD;
@@ -58,7 +60,7 @@ public final class NationMapData {
 
     public static void clear() {
         var empty = new NationMapPayload(List.of(), List.of(), 0);
-        accept(new BorderedMapPayload(empty, new byte[0]), Level.OVERWORLD.location(), List.of());
+        accept(new BorderedMapPayload(empty, new byte[0]), Level.OVERWORLD.location(), List.of(), List.of());
         updatedAt = 0;
     }
 
@@ -73,18 +75,26 @@ public final class NationMapData {
 
     public static synchronized void accept(BorderedMapPayload snapshot) {
         var level = Minecraft.getInstance().level;
-        accept(snapshot, level == null ? Level.OVERWORLD.location() : level.dimension().location(), List.of());
+        accept(snapshot, level == null ? Level.OVERWORLD.location() : level.dimension().location(), List.of(), List.of());
     }
 
     public static void accept(DisputeMapPayload snapshot) {
-        accept(snapshot.territory(), snapshot.dimension(), snapshot.battles());
+        accept(snapshot.territory(), snapshot.dimension(), snapshot.battles(), List.of());
         TerritoryScreen.refreshIfOpen();
     }
 
+    public static void accept(OilMapPayload snapshot) {
+        var map = snapshot.map();
+        accept(map.territory(), map.dimension(), map.battles(), snapshot.fields());
+        TerritoryScreen.refreshIfOpen();
+    }
+
+    public static List<Long> oilFields() { return oilFields; }
     public static List<DisputeMapPayload.Battle> battles() { return battles; }
     public static ResourceKey<Level> dimension() { return dimension; }
 
-    private static synchronized void accept(BorderedMapPayload snapshot, ResourceLocation world, List<DisputeMapPayload.Battle> open) {
+    private static synchronized void accept(BorderedMapPayload snapshot, ResourceLocation world, List<DisputeMapPayload.Battle> open, List<Long> fields) {
+        oilFields = List.copyOf(fields);
         battles = List.copyOf(open);
         dimension = ResourceKey.create(Registries.DIMENSION, world);
         NationMapPayload payload = snapshot.map();

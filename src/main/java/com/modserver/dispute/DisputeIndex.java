@@ -54,13 +54,11 @@ public final class DisputeIndex {
     }
 
     /** Disputes that are still open. */
+    public boolean hasOpen() { return !openByChunk.isEmpty(); }
+
     public List<Dispute> open() {
         List<Dispute> result = new ArrayList<>();
-        for (Dispute dispute : byId.values()) {
-            if (dispute.status().isOpen()) {
-                result.add(dispute);
-            }
-        }
+        for (long id : openByChunk.values()) result.add(byId.get(id));
         return result;
     }
 
@@ -96,7 +94,7 @@ public final class DisputeIndex {
         if (dispute.status().isOpen()) {
             openByChunk.put(key, dispute.id());
         } else {
-            openByChunk.remove(key);
+            openByChunk.remove(key, dispute.id());
         }
     }
 

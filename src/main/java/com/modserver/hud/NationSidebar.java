@@ -76,8 +76,8 @@ public final class NationSidebar {
     }
 
     private void publish(ServerGamePacketListenerImpl connection, View view, View previous) {
-        Component title = Component.literal("■ ").withColor(view.color())
-                .append(Component.literal(view.name()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD));
+        Component title = Component.literal("⚑ ").withColor(view.color())
+                .append(Component.literal(view.name()).withColor(0xF4CB75).withStyle(ChatFormatting.BOLD));
         Objective objective = objective(title);
         if (previous == null || previous.color() != view.color() || !previous.name().equals(view.name())) {
             connection.send(new ClientboundSetObjectivePacket(objective, previous == null
@@ -98,9 +98,8 @@ public final class NationSidebar {
                 continue;
             }
             String label = view.language().text(field.key);
-            Component display = Component.literal(" " + label).withColor(0xE6E9EA);
-            int color = field == Field.PROTECTION && !view.defended() ? 0xFF998A : field.color;
-            var number = new FixedFormat(Component.literal(value + " ").withColor(color));
+            Component display = Component.literal(" " + label).withColor(0xF1E2C1);
+            var number = new FixedFormat(Component.literal(value + " ").withColor(field.color));
             connection.send(new ClientboundSetScorePacket(rowId, objectiveName, Field.values().length - field.ordinal(),
                     Optional.of(display), Optional.of(number)));
         }
@@ -112,13 +111,9 @@ public final class NationSidebar {
     private enum Field {
         BALANCE("modserver.sidebar.balance", 0xFFE089),
         INCOME("modserver.sidebar.income", 0xA2EDB0),
-        UPKEEP("modserver.sidebar.upkeep", 0xFFC39F),
-        DEFENSE("modserver.sidebar.defense", 0xFFC39F),
-        DEBT("modserver.sidebar.debt", 0xFF998A),
         CYCLE("modserver.sidebar.cycle", 0xFFE089),
         LAND("modserver.sidebar.land", 0xFFFFFF),
-        CAPITAL("modserver.sidebar.capital", 0xFFFFFF),
-        PROTECTION("modserver.sidebar.protection", 0xA2EDB0);
+        CAPITAL("modserver.sidebar.capital", 0xFFFFFF);
 
         final String key;
         final int color;
@@ -130,13 +125,12 @@ public final class NationSidebar {
     }
 
     private record View(String name, int color, int chunks, String capital, long balance, long income,
-                        long upkeep, long defenseCost, long debt, boolean defended, boolean dailyCycle, ServerLanguage language) {
+                        boolean dailyCycle, ServerLanguage language) {
         static View of(Nation nation, int chunks, EconomyRules rules, boolean dailyCycle, ServerLanguage language) {
             NationEconomy eco = nation.economy();
             String capital = nation.hasCapital() ? nation.capitalX() + ", " + nation.capitalZ() : "—";
             return new View(nation.name(), nation.color(), chunks, capital, eco.balance(),
-                    rules.dailyIncome(chunks, eco), rules.dailyUpkeep(chunks, eco), rules.defenseCost(chunks),
-                    eco.defenseDebt(), eco.isDefended(), dailyCycle, language);
+                    rules.dailyIncome(chunks, eco), dailyCycle, language);
         }
 
         Map<Field, String> rows() {
@@ -144,15 +138,11 @@ public final class NationSidebar {
             rows.put(Field.BALANCE, language.text("modserver.sidebar.coins", language.coins(balance)));
             if (dailyCycle) {
                 rows.put(Field.INCOME, "+" + language.coins(income));
-                rows.put(Field.UPKEEP, "−" + language.coins(upkeep));
-                rows.put(Field.DEFENSE, "−" + language.coins(defenseCost));
             } else {
                 rows.put(Field.CYCLE, language.text("modserver.sidebar.paused"));
             }
-            if (debt > 0) rows.put(Field.DEBT, language.coins(debt));
             rows.put(Field.LAND, chunks + (chunks == 1 ? " chunk" : " chunks"));
             rows.put(Field.CAPITAL, capital);
-            rows.put(Field.PROTECTION, language.text(defended ? "modserver.sidebar.active" : "modserver.sidebar.unprotected"));
             return rows;
         }
     }

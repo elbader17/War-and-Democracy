@@ -47,4 +47,8 @@ public enum ServerLanguage {
     public String coins(long cents) {
         return String.format(locale, "%.2f", java.math.BigDecimal.valueOf(cents, 2));
     }
+
+    public String number(long value) {
+        return String.format(locale, "%,d", value);
+    }
 }

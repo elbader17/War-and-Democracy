@@ -5,6 +5,7 @@ import com.modserver.claim.ClaimIndex;
 import com.modserver.economy.EconomyRules;
 import com.modserver.economy.EconomyService;
 import com.modserver.economy.Investment;
+import com.modserver.military.TroopCounts;
 import com.modserver.nation.Nation;
 import com.modserver.nation.NationManager;
 import net.minecraft.gametest.framework.GameTest;
@@ -15,7 +16,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import java.util.UUID;
 
 /**
- * Tests of the economy of the nations: income, upkeep, defense,
+ * Tests of the economy of the nations: income, reinforcements,
  * investments and the cost of attacking.
  *
  * <p>Everything is pure domain: {@link EconomyService} does not depend on Minecraft,
@@ -29,8 +30,7 @@ public class ModServerEconomyGameTests {
 
     /** Default rules (same as the server): everything in currency cents. */
     private static EconomyRules rules() {
-        return new EconomyRules(10000L, 1200L, 100L, 2000L, 200L, 500L,
-                5000L, 50L, 10000L, 15000L, 20000L, 1000L, 1500L, 2000L, 3);
+        return new EconomyRules(10000L, 1200L, 5000L, 50L, 10000L, 15000L, 20000L, 3);
     }
 
     private record Fixture(NationManager nations, ClaimIndex claims, EconomyService economy,
@@ -50,88 +50,36 @@ public class ModServerEconomyGameTests {
         return new Fixture(nations, claims, new EconomyService(claims), nation);
     }
 
-    /** A chunk gives income and the upkeep is charged: the balance changes. */
     @GameTest(template = "empty")
-    public void incomeAndUpkeepAreApplied(GameTestHelper helper) {
+    public void treasuryReceivesFullChunkIncome(GameTestHelper helper) {
         Fixture f = fixture(1, 10000L);
 
         EconomyService.DailyReport report = f.economy().closeDay(f.nation(), rules(), 0L);
 
         helper.assertTrue(report.income() == 1200L, "The income must be the one of a chunk");
-        helper.assertTrue(report.upkeep() == 100L, "The upkeep must be the one of a chunk");
-        // defense = base (2000) + per chunk (200) + quadratic (500 * 1 / 100 = 5)
-        helper.assertTrue(report.defenseCost() == 2205L,
-                "The defense must be base + per chunk + quadratic");
-        helper.assertTrue(report.defended(), "With balance the defense is paid");
-        helper.assertTrue(f.nation().economy().balance() == 10000L - 100L + 1200L - 2205L,
-                "The balance must be the initial one minus upkeep plus income minus defense");
-
+        helper.assertTrue(report.balance() == 11200L, "The treasury receives the full income");
         helper.succeed();
     }
 
-    /** Defending a big territory costs much more than a small one. */
     @GameTest(template = "empty")
-    public void biggerTerritoryIsMoreExpensiveToDefend(GameTestHelper helper) {
-        EconomyRules rules = rules();
-        long small = rules.defenseCost(1);
-        long medium = rules.defenseCost(10);
-        long large = rules.defenseCost(50);
-
-        helper.assertTrue(small < medium, "Defending 10 chunks must cost more than 1");
-        helper.assertTrue(medium < large, "Defending 50 chunks must cost more than 10");
-        // The quadratic term makes the growth more than linear.
-        helper.assertTrue(large - medium > medium - small,
-                "The defense cost must grow more than linearly with the size");
-
+    public void largeNationKeepsEveryChunkWithAnEmptyTreasury(GameTestHelper helper) {
+        Fixture f = fixture(50, 0L);
+        var report = f.economy().closeDay(f.nation(), rules(), 24000L);
+        helper.assertTrue(f.claims().chunkCount(f.nation().id()) == 50 && report.balance() == 60000L,
+                "All fifty chunks stay claimed and each generates its full income");
         helper.succeed();
     }
 
-    /** If the defense cannot be paid, the nation ends up UNPROTECTED and in debt. */
     @GameTest(template = "empty")
-    public void unpaidDefenseLeavesTheNationUnprotected(GameTestHelper helper) {
-        Fixture f = fixture(1, 0L);
-
-        EconomyService.DailyReport report = f.economy().closeDay(f.nation(), rules(), 0L);
-
-        helper.assertTrue(!report.defended(), "Without money the defense is not paid");
-        helper.assertTrue(!f.economy().canDefend(f.nation()), "The nation must end up unprotected");
-        helper.assertTrue(f.nation().economy().defenseDebt() > 0L, "Defense debt must remain");
-
-        helper.succeed();
-    }
-
-    /** Paying for the defense restores the protection and refills the garrison. */
-    @GameTest(template = "empty")
-    public void payingDefenseRestoresProtection(GameTestHelper helper) {
-        Fixture f = fixture(1, 0L);
-        f.economy().closeDay(f.nation(), rules(), 0L);
-        helper.assertTrue(!f.economy().canDefend(f.nation()), "It starts unprotected");
-
-        // The player receives money (for example, from server rewards) and pays.
-        f.nation().economy().setBalance(50000L);
-        EconomyService.Outcome outcome = f.economy().payDefense(f.nation(), rules());
-
-        helper.assertTrue(outcome.success(), "The payment should be accepted: " + outcome.message());
-        helper.assertTrue(f.economy().canDefend(f.nation()), "After paying it is protected again");
-        helper.assertTrue(f.nation().economy().defenseDebt() == 0L, "The debt must end up at zero");
-
-        helper.succeed();
-    }
-
-    /** If the upkeep is not paid, the farthest chunks are lost. */
-    @GameTest(template = "empty")
-    public void unpaidUpkeepLosesTheFarthestChunks(GameTestHelper helper) {
-        Fixture f = fixture(3, 250L);
-
-        EconomyService.DailyReport report = f.economy().closeDay(f.nation(), rules(), 0L);
-
-        helper.assertTrue(report.chunksLost() == 1,
-                "With 250 cents and 300 of upkeep 1 chunk is lost");
-        helper.assertTrue(f.claims().chunkCount(f.nation().id()) == 2,
-                "The nation must keep 2 chunks");
-        helper.assertTrue(f.claims().claimAt(WORLD, 2, 0) == null,
-                "The chunk farthest from the capital must be lost");
-
+    public void negativeLegacyBalanceKeepsOutlyingGarrisons(GameTestHelper helper) {
+        Fixture f = fixture(3, -5000L);
+        var border = f.claims().claimAt(WORLD, 2, 0);
+        var troops = new TroopCounts(2, 3, 4);
+        border.setForces(troops);
+        var report = f.economy().closeDay(f.nation(), rules(), 24000L);
+        helper.assertTrue(report.balance() == -1400L, "All three chunks earn income against the existing balance");
+        helper.assertTrue(f.claims().claimAt(WORLD, 2, 0) == border && border.forces().equals(troops),
+                "An overdrawn nation keeps its border and the troops deployed there");
         helper.succeed();
     }
 
@@ -188,11 +136,9 @@ public class ModServerEconomyGameTests {
         helper.assertTrue(report.income() == 2L * 1200L * 125L / 100L,
                 "The income must include the farm bonus");
         helper.assertTrue(report.interest() > 0L, "The treasury must give interest");
-        // Balance = initial - upkeep + income - defense + interest
-        long expected = before - report.upkeep() + report.income() - report.defenseCost()
-                + report.interest();
+        long expected = before + report.income() + report.interest();
         helper.assertTrue(f.nation().economy().balance() == expected,
-                "The balance must match the charges and the interest");
+                "Farm income and treasury interest are credited in full");
 
         helper.succeed();
     }
@@ -209,38 +155,19 @@ public class ModServerEconomyGameTests {
         helper.succeed();
     }
 
-    /** The garrison defends a dispute without any player being connected. */
     @GameTest(template = "empty")
-    public void garrisonDefendsWithoutAnyPlayer(GameTestHelper helper) {
-        Fixture f = fixture(1, 50000L);
-        f.nation().economy().setGarrisonLevel(1);
-
-        // Paying for the defense refills one garrison point.
-        f.economy().payDefense(f.nation(), rules());
-        helper.assertTrue(f.nation().economy().garrisonPoints() == 1,
-                "The garrison must refill one point when paying for the defense");
-
-        helper.assertTrue(f.economy().tryGarrisonDefense(f.nation()),
-                "The garrison must be able to defend");
-        helper.assertTrue(f.nation().economy().garrisonPoints() == 0,
-                "The garrison consumes the point");
-        helper.assertTrue(!f.economy().tryGarrisonDefense(f.nation()),
-                "Without points it cannot defend again");
-
-        helper.succeed();
-    }
-
-    /** An unprotected nation cannot use its garrison. */
-    @GameTest(template = "empty")
-    public void unprotectedNationHasNoGarrison(GameTestHelper helper) {
-        Fixture f = fixture(1, 0L);
-        f.nation().economy().setGarrisonLevel(1);
-        f.nation().economy().setGarrisonPoints(3);
-        f.nation().economy().setDefended(false);
-
-        helper.assertTrue(!f.economy().tryGarrisonDefense(f.nation()),
-                "An unprotected nation cannot defend even with a garrison");
-
+    public void garrisonAddsGroundReinforcementsEvenWithAnEmptyTreasury(GameTestHelper helper) {
+        Fixture f = fixture(0, 2 * rules().garrisonCost());
+        var economy = f.nation().economy();
+        economy.setReserveForces(new TroopCounts(1, 2, 3));
+        f.economy().purchase(f.nation(), Investment.GARRISON, rules());
+        f.economy().purchase(f.nation(), Investment.GARRISON, rules());
+        helper.assertTrue(economy.garrisonLevel() == 2 && economy.balance() == 0, "Each upgrade charges its purchase price once");
+        f.economy().closeDay(f.nation(), rules(), 24000L);
+        f.economy().closeDay(f.nation(), rules(), 48000L);
+        helper.assertTrue(economy.reserveForces().equals(new TroopCounts(5, 2, 3)),
+                "Each level adds one ground troop per day, preserving existing branches");
+        helper.assertTrue(economy.balance() == 0, "Daily reinforcements are free");
         helper.succeed();
     }
 }

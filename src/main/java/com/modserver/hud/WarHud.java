@@ -63,6 +63,15 @@ public final class WarHud {
             UUID opponent = attacking ? d.defenderNationId() : d.challengerNationId();
             String name = service.nations().byId(opponent).map(Nation::name).orElse("?");
             String title = language.text(country.relationWith(opponent) == NationRelation.WAR ? "modserver.war.war" : "modserver.war.dispute");
+            var force = d.assault();
+            if (force != null) {
+                var target = service.claims().claimAt(d.dimension(), d.chunkX(), d.chunkZ());
+                int defenders = target == null ? 0 : target.armies();
+                long left = Math.max(0, force.nextDuel() - now);
+                String text = language.text("tac.front", name, force.attackers(), defenders, (left + 19) / 20);
+                return new Status(text, attacking ? BossEvent.BossBarColor.RED : BossEvent.BossBarColor.YELLOW,
+                        Math.min(1f, (float)left / Dispute.DUEL_TICKS));
+            }
             long ticks = Math.max(0L, d.deadline() - now);
             long seconds = (ticks + 19) / 20;
             String timer = String.format(Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60);

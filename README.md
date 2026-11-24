@@ -1,10 +1,12 @@
 # War & Democracy
 
+The [Six Nations Earth scenario](scenarios/six-nations/README.md) ships with the V1 campaign.
+
 ## Getting started
 
 Use Java 21 and NeoForge **21.1.266** on a Minecraft Java **1.21.1** server. Run
 `tools/build.sh` with `JAVA_HOME` pointing to JDK 21, copy
-`build/libs/modserver-0.1.0.jar` into the server's `mods/` directory, and start
+`build/libs/modserver-1.0.0.jar` into the server's `mods/` directory, and start
 the server. Players can join with vanilla Minecraft Java 1.21.1.
 
 1. Run `/nation create Aurora` in the Overworld to found a nation at your current
@@ -15,46 +17,113 @@ the server. Players can join with vanilla Minecraft Java 1.21.1.
    separate neighboring nations. Pale lines border unclaimed land. A **pale X on
    red** marks a disputed chunk. Right-click a chunk and choose **Inspect / dispute
    territory** to see its owner, the participants in an active dispute, and the
-   remaining defense time. On an eligible rival chunk, review the price and
-   defense window and press **Dispute** to spend the coins. Install the mod and
+   time remaining in the engagement. Choose **Tactical map** for army orders. Install the mod and
    JourneyMap on your NeoForge client for this view. The political map opens
    with `/nation map`. On a vanilla client it appears in chat as a north-up grid.
    Hover over a cell to see its coordinates and owner, or click it to inspect it.
    The ▣ symbol marks an international border.
 4. Run `/nation economy` to inspect your treasury. Nations start with **100
-   coins**. With the default settings, three chunks generate 36 coins per game
-   day and yield **6.55 coins** after upkeep and defense. The sidebar shows your
-   balance, daily income and expenses, territory, capital, protection, and any
-   defense debt. It updates on both vanilla and modded clients. An existing
+   coins**. With the default settings, three chunks earn **36 coins per game day**
+   before any investment bonuses. The sidebar shows your balance, daily income,
+   territory and capital. It updates on both vanilla and modded clients. An existing
    server scoreboard takes priority while it uses the sidebar.
-5. Use `/nation dispute X Z` to challenge another nation's chunk. A neutral
-   dispute costs **50 coins** and gives the owner **10 minutes** to defend.
-   `/nation attack X Z` declares war and opens a dispute for **25 coins** with a
-   **5-minute** defense window. X and Z are chunk coordinates. The owner can
-   defend with `/nation defend X Z` and pay any defense debt with `/nation defense pay`.
+5. Press **U** for the tactical map, or open **K → Manage country → Military → Tactical map**.
+   Use **Buy** to recruit armies and **Deploy** to place them on a chunk.
+   Use **Move** to send deployed armies to a neighboring chunk of your nation.
+   In **Attack**, pick your origin and a neighboring rival chunk, choose how
+   many armies to send, or select **All troops**, then click **Launch attack**.
 
 The sample cog is available for existing worlds. Servers where every player has
 the mod installed can enable its recipe with `/datapack enable "mod/modserver:cog_demo"`.
 
+### Manage a nation and sell resources
+
+Press **K → Manage country** with the client mod, or run `/nation panel` (also `/nacion panel`).
+The owner can claim or release the current chunk, view its owner, open the map,
+edit the nation's name, preamble and doctrines, review income,
+and inspect a rival chunk to fund a dispute. Preambles and doctrines are
+player-written text. The military tab shows reserve troops and lets the owner upgrade
+the garrison for daily reinforcements. Vanilla clients receive an interactive book.
+Click an edit link there, then click the chat prompt and press Enter to save.
+
+Country names can contain spaces and accented letters, for example
+`/nation create República Democrática`. Quote multiword names when another
+argument follows, for example `/nation agreement "República Democrática" ally`.
+To found a country whose name ends in a number, quote the name to distinguish
+it from the optional map color.
+
+Aim at a regular chest within reach in **any chunk your nation owns** and run
+`/nation reserve` (Spanish: `/nacion reserva`). Both halves of a double chest
+can supply the reserve if your nation owns the land under both. The active chest
+gets a teal-and-gold texture with the mod installed and a gold band on vanilla
+clients. Linking another chest moves the reserve; each chest keeps its contents.
+A lost claim or a broken chest stops supplying the market. Open **K → Manage country → Treasury**
+to review existing deposits and anything added later.
+
+| Plain item | Coins per unit by default |
+|---|---:|
+| Iron ingot | 1 |
+| Gold ingot | 4 |
+| Diamond | 20 |
+| Netherite ingot | 100 |
+
+The treasury lists stock, unit prices, each material's value, total stock value
+and the separate coin balance. Select a material, enter a quantity (leave it
+empty for all), and review the sale. Confirming removes exactly that quantity
+from the linked chest and credits the nation. Quotes expire after one minute.
+Named or customized items are excluded. Server owners can change prices in the
+`market` section of the mod's server configuration.
+
+### Petroleum concessions (optional Create integration)
+
+Install Create and Create: Diesel Generators on both the server and participating clients.
+The integration was tested on Minecraft 1.21.1 with NeoForge 21.1.266, Create 6.0.10 and
+Diesel Generators 1.3.16. The rest of War & Democracy can run independently.
+
+1. Right-click with the addon's Oil Scanner in a chunk your nation controls. When the
+   scan finishes, its reading is registered automatically at your location. The
+   **Survey** button in the **Petroleum** tab and `/nation oil survey` also register a reading.
+   The survey uses the addon's actual remaining deposit and scanner height limit.
+   A successful survey marks the chunk with a gold outline and an oil pin on the campaign board (**U**) and the overhead terrain map (**M**). The terrain map labels the pin **Oil field** and keeps your own concessions visible beyond the nearby territory overlay.
+   The Petroleum tab totals the latest surveys across all fields your nation currently owns and
+   shows the current chunk's reading separately. Surveying the same chunk again replaces its
+   previous reading, so you can update the estimate after extraction.
+2. Use Create pipes to feed a fluid tank or the addon's oil barrel from a pumpjack or
+   distillation tower. Build the entire tank inside the concession. The tank can
+   also receive fuel transported from another facility.
+3. Stand in the concession, aim at its tank and open `/nation oil`.
+   The panel shows the physical volume, rates and remaining export allowance.
+   Enter a number of whole buckets and confirm the offer. Chat also supports
+   `/nation oil export <buckets>`. Each bucket is 1,000 mB.
+
+| Product | Default national coins per bucket |
+| --- | ---: |
+| Crude oil | 8 |
+| Diesel | 16 |
+| Gasoline | 12 |
+
+Each field may export a combined **32 buckets per 24,000 elapsed server ticks**.
+A pipeline may keep feeding a tank while its owner is away. Selling draws only the
+confirmed volume and credits the current owner's treasury. Disputes suspend exports.
+Capturing or reclaiming the land transfers the concession with its remaining quota.
+A depleted field can still export stored or imported fuel. Server owners can tune the
+prices and allowance in the `petroleum` section of the mod's server config.
+
+For development, add `-Ppetroleum=true` to a Gradle run to load both mods.
+`ORG_GRADLE_PROJECT_petroleum=true bash tools/gametest.sh` runs the real tank and
+deposit integration test alongside the rest of the suite.
+
 ### Challenge a rival NPC
 
 In the demo, right-click the **Envoy of Baluarte** by the border road and press
-**T** to choose a challenge in chat. **Attack Baluarte** spends your nation's
-coins. **Accept an attack** lets Baluarte pay to challenge one of your chunks.
-Both options show the chunk coordinates before you commit.
-
-The bar at the top shows your role, your opponent, the chunk, and the remaining
-time. If several disputes are active, it shows the one ending first. Use
-`/nation disputes` to list them all. When time expires, the attacker takes the
-chunk unless the defender holds it. Use `/nation defend X Z` in the chunk's
-dimension while your protection is active. A protected garrison can spend one
-point at the deadline to hold the chunk automatically. Both nations receive the
-result in chat. Diplomatic wars continue between disputes. Use
-`/nation peace Baluarte` to return to neutrality. Open disputes keep their deadlines.
+**T** to choose a border challenge. Planning an attack opens the tactical board.
+Accepting a counterattack lets the envoy buy and deploy reinforcements with its
+own treasury and engage your border in a sustained battle. A surviving
+defense holds the land. The war bar and map mark ongoing engagements.
 
 To add an envoy on another server, an operator can stand in an unclaimed chunk
 and run `/nation admin rival Baluarte`. This creates a persistent envoy and founds
-a nation with up to three adjacent chunks. The rival participates in the same
+a nation with up to three adjacent chunks. Its envoy uses its treasury to muster up to four armies in the capital. The rival participates in the same
 economy as player nations.
 
 **Nations, disputes, diplomacy and economy for Minecraft 1.21.1 (NeoForge).**
@@ -63,8 +132,7 @@ A server-side mod for SMP servers that want the classic "land claiming" gameplay
 with a political layer on top: every player founds a **nation**, the land is
 **claimed chunk by chunk** (and always as one contiguous shape), the neighbours can
 **dispute** it, the nations sign **pacts, alliances or wars** between them, and
-every piece of land has a price in the **economy of the mod** (bigger territory =
-more income, but also a more expensive defense).
+each claimed chunk earns daily income for its nation's treasury.
 
 Built as a **development base for Minecraft 1.21.1 with NeoForge** mods, so that
 an agent can iterate against the real game without human supervision.
@@ -78,7 +146,7 @@ an agent can iterate against the real game without human supervision.
 | Java | Temurin 21.0.13 (LTS) |
 | Mod | `modserver` (package `com.modserver`) |
 
-**Verified state:** the mod compiles, passes **31/31 GameTests** inside the game
+**Verified state:** the mod compiles, passes **37/37 GameTests** inside the game
 (nation model, claims and contiguity, disputes, diplomacy and economy), the bot
 joins the world as a real player (even as a *vanilla* client), the GUI client
 connects to the server on its own, **the nation map paints the territory with the
@@ -105,7 +173,7 @@ projects/minecraft/
 │   │   ├── block/ModServerBlocks.java   <- sample "cog" block
 │   │   ├── item/ModServerItems.java     <- items + creative tab
 │   │   ├── command/ModServerCommands.java   <- /modserver info|selftest|spawncog
-│   │   ├── command/NationCommands.java      <- /nation create|claim|unclaim|info|list|members|color|agreement|map|dispute|defend|disputes|economy|defense|attack|war|peace|alliance|pact|admin
+│   │   ├── command/NationCommands.java      <- /nation create|claim|unclaim|info|list|members|color|agreement|map|dispute|defend|disputes|economy|attack|war|peace|alliance|pact|admin
 │   │   ├── nation/                   <- Nation, NationRole, NationRelation, NationManager (domain)
 │   │   ├── claim/                    <- Claim, ClaimIndex (territory)
 │   │   ├── dispute/                  <- Dispute, DisputeStatus, DisputeIndex, DisputeService (disputes)
@@ -164,7 +232,7 @@ First run on a new machine:
 ```bash
 source tools/env.sh
 ./tools/build.sh          # ./gradlew build -> jar in build/libs/
-./tools/gametest.sh       # 31 GameTests inside the game
+./tools/gametest.sh       # 37 GameTests inside the game
 ```
 
 ## 3. Commands
@@ -191,7 +259,7 @@ tools/dispute_check.sh         # E2E check of the disputes with two real bots
 tools/diplomacy_check.sh       # E2E check of the diplomacy with two real bots
                                # (a pact blocks disputes; war opens them)
 tools/economy_check.sh         # E2E check of the economy with two real bots
-                               # (earn, spend on attacking and become unprotected)
+                               # (earn income, buy troops and deploy them)
 
 tools/smoke.sh                 # FULL LOOP: build -> gametest -> server -> bot -> asserts -> stop
 ```
@@ -255,18 +323,17 @@ runner returns a non-zero exit code so an agent can decide on its own.
 | `/nation color <0-16777215>` | nation RGB colour |
 | `/nation agreement <nation> <pact\|ally\|war\|neutral>` | signs an agreement between nations |
 | `/nation map` | opens the graphical nation map on a modded client or a local territory grid in vanilla chat |
-| `/nation dispute [x] [z]` | opens a dispute over a chunk (yours by default) |
-| `/nation defend [x] [z]` | the owning nation answers the dispute: the chunk is kept |
+| `/nation tactics [x] [z]` | opens the tactical board or inspects forces on a vanilla client |
+| `/nation dispute [x] [z]` | opens the tactical board at the specified chunk |
+| `/nation defend [x] [z]` | opens the tactical board to reinforce a chunk |
 | `/nation disputes` | lists the disputes (state, chunk, challenger and defender) |
 | `/nation war <nation>` | declares war (it changes how disputes work) |
-| `/nation peace <nation>` | back to neutrality |
-| `/nation alliance <nation>` | signs an alliance (disputes are blocked) |
-| `/nation pact <nation>` | signs a non-aggression pact (disputes are blocked) |
-| `/nation attack [x] [z]` | declares war (if needed) and opens a dispute over that chunk |
-| `/nation economy` | treasury state: balance, income, upkeep, defense and investments |
+| `/nation peace <nation>` | proposes peace during war or leaves a treaty |
+| `/nation alliance <nation>` | proposes or ratifies an alliance |
+| `/nation pact <nation>` | proposes or ratifies a non-aggression pact |
+| `/nation attack [x] [z]` | opens the tactical board at a planned target |
+| `/nation economy` | treasury balance, daily income, reserve troops and investments |
 | `/nation economy invest <farm\|garrison\|treasury>` | invests coins in an upgrade |
-| `/nation defense` | today's defense cost and whether the nation is protected |
-| `/nation defense pay` | pays for defense (protects the territory again) |
 | `/nation admin resolve <id> keep\|transfer` | manual resolution (op level 2) |
 | `/nation admin economy tick\|balance <nation> <coins>` | forces the economy day or sets a balance |
 
@@ -312,74 +379,152 @@ opening the map, to see the borders in the JourneyMap minimap) and `clientJourne
 launched with `./gradlew runClientAuto`, `./gradlew runClientMap`,
 `./gradlew runClientMinimap` and `./gradlew runClientJourneyMap`.
 
-### Disputes (Phase 4)
+### Tactical map and combat
 
-The full cycle is:
+Open **U**, `/nation tactics`, or `/nacion tactica`. The campaign map draws national borders and
+colors each claimed zone on parchment. A flag identifies each country. As armies accumulate, the map exchanges pieces
+within each branch. Pieces represent 1, 10, 100 or 1,000 troops. The largest branch supplies the visible counter.
+Ground uses military insignia, air uses wings and navy uses ships. A force of 15,000 ground troops appears as a battalion standard
+marked **×15**. A **+** means there are additional troops. Hover over the chunk
+to see every denomination and its exact count, or over the legend to see the
+insignia and names of the formations. For example, 1,000 troops make a ground battalion, an air wing or a naval fleet. The battlefield uses the same denominations for its figures.
+Orders, dice and losses are counted in individual troops.
+Rockets mark stored missiles. Red hatching and crossed swords mark disputed chunks.
+Terrain shading and signs for grassland, forest, water and steep ground follow the
+surface of chunks your client has loaded. Drag to pan and scroll to zoom. At low
+zoom the counters keep their formation insignia. Hover over a chunk for exact troop
+and missile counts. Army counters appear exclusively on the tactical board.
 
-1. A nation opens a dispute over another nation's chunk: `/nation dispute` (or
-   `/nation dispute <x> <z>`). The defending nation gets a chat warning.
-2. The defender answers in time: `/nation defend` -> the chunk is kept.
-3. If nobody defends before the window expires, **the chunk goes to the challenging
-   nation** (the server checks it once per second).
-4. An administrator can resolve it by hand: `/nation admin resolve <id> keep|transfer`
-   (it can also re-resolve an already defended dispute: a player's decision does not bind
-   the server administration).
+The buttons above the order panel open separate forms. **Buy**, **Deploy** and
+**Move** remember their own quantities while the board is open. **Attack**,
+**Build missile** and **Launch missile** each remember their own chunks. A solid
+turquoise frame marks your origin. Blue corners mark a friendly movement
+destination and amber corners mark a rival target. To move either marker,
+click its **Change** button and pick another
+chunk on the map. Review the cost or expected effect, then use the order button
+to execute.
 
-The defense window and the anti-abuse cooldowns live in
-`config/modserver-server.toml`:
+- Choose **Ground**, **Air**, or **Navy** when recruiting. All three branches can use any claimed chunk.
+  **Mixed** deployment, movement and attack orders draw troops in proportion to the available branches.
+  Each duel randomly draws one surviving troop per side. Air has a slight edge over ground, ground over navy,
+  and navy over air. The favored troop counts a roll of **1 as 2**. This changes one of the 36 possible
+  dice pairs. An attacker wins 16/36 duels with the edge, 15/36 against the same branch, and 14/36 at a disadvantage.
+  Only the branch that loses the duel takes a casualty.
+  The defender wins a tie after modifiers. Group size adds no combat bonus.
+- Armies cost 10 coins apiece by default (`economy.armyPrice`). Buying adds to
+  the nation's reserve. Choose an owned chunk, enter the quantity, and deploy.
+  New claims start with one ground troop. Armies, reserves and ongoing attacks from older saves
+  load as ground troops. Garrison investments add ground troops to the reserve.
+- In **Move**, select your origin and an owned chunk sharing an edge. Enter
+  the quantity, review both garrisons, then click **Move armies**. At least one
+  army stays at the origin. The transfer is free and missiles stay in place.
+- In **Attack**, choose any number of troops, including the entire garrison.
+  They leave the origin immediately. The land stays yours even if it is empty.
+  The server rolls one die for each side every five seconds of game time. Each
+  duel removes one army, and ties favor the defender. Survivors occupy the target
+  when its defense falls. An empty target takes one interval to occupy.
+  With 20 attacking 20, an uninterrupted battle takes 100–195 seconds.
+  Defenders can deploy reinforcements while the battle is running. Battles
+  continue with the map closed or players offline and resume after a server restart.
+  On the battlefield, infantry charge with swords and shields, biplanes bank into
+  strafing runs, and patrol boats fire arcing shells from recoiling deck guns.
+  Formations carry their national colors and repeat these maneuvers every 2.5
+  seconds, twice per duel. Each roll triggers an impact on
+  the losing branch, including the final casualty. Nearby vanilla clients
+  receive the battle sounds and particles.
+- Exchange six deployed armies for one missile at the selected origin, leaving an
+  occupying army. Open **Launch missile**. The map picks your armed workshop or
+  your only armed base on the board when possible. Gold corners mark eligible
+  targets. Click one to preview the losses and confirm the launch.
+  A missile removes three, two or one defending armies at grid
+  distances one, two or three respectively (count orthogonal edges). A launch
+  consumes the missile and must leave at least one defender. Capturing a chunk
+  also captures its missiles. Pacts and alliances block both hostile orders.
+  After the server accepts an attack or missile launch, the issuing player's
+  tactical board closes so they can watch the action in the world. A missile
+  launch turns the firing player's camera toward the launch site at ignition.
+  Mouse look is available immediately. Other observers can follow the flight on their boards.
+- The **Nuclear** tab sells one nuclear missile at the selected friendly silo
+  for 1,000,000 treasury coins by default (server setting `nuclearMissilePrice`).
+  Select a rival center within three chunk edges to preview the 3×3 footprint.
+  A strike removes every garrison and every troop fighting there, including
+  friendly and allied forces. It ends disputes in those nine chunks and preserves
+  ownership, player health and terrain. A treaty blocks targeting its signatory
+  as the center. Use `/nation tactics nuclear buy X Z` and
+  `/nation tactics nuclear fire X Z TX TZ` to issue the same orders in chat.
+- On vanilla clients, `/nation tactics X Z` inspects forces. Order examples:
+  `/nation tactics buy 5`, `/nation tactics deploy 0 0 5`, `/nation tactics move 0 0 1 0 3`,
+  `/nation tactics roll 0 0 1 0 3`, `/nation tactics exchange 0 0`,
+  and `/nation tactics fire 0 0 2 0`. Append `ground`, `air` or `naval` after the quantity to choose a branch,
+  e.g. `/nation tactics buy 5 air`. Omitting the branch recruits ground or transfers a proportional mix.
 
-| Option | Default | Purpose |
-|---|---|---|
-| `disputeWindowMinutes` | 10 | minutes to defend the chunk |
-| `disputeCooldownMinutes` | 30 | wait for a nation before disputing again |
-| `disputeChunkCooldownMinutes` | 120 | wait for a chunk before it can be disputed again |
+Defender advantage on tied dice is inspired by [Yetem's TEG rules](https://yetem.com/wp-content/uploads/2017/06/TEG.pdf).
+Missile exchanges and distance-based losses are adapted from
+[TEG La Revancha](https://yetem.com/wp-content/uploads/2017/06/TEG-REVANCHA.pdf).
+Players can issue individual orders in real time on the Minecraft server.
 
-A **pact** or an **alliance** between the two nations blocks disputes; war or neutrality
-allow them. The end-to-end check is `tools/dispute_check.sh` (two real bots + RCON
-assertions).
+### Diplomacy
 
-### Diplomacy (Phase 5)
+Press **K** for the Council of Nations, or run `/nation council` (`/nacion consejo`).
+The overview shows territory, treasury, investments, reserve chest stock, oil when available,
+deployed and reserve troops, engagements and convoys. **Review proposals** opens an incoming
+offer directly. Use the index (under **Sections** on small displays) to choose an action,
+then choose a country. **Change country** switches the partner for that action.
 
-The relation between two nations is changed with `/nation war|peace|alliance|pact
-<nation>` (or with the generic `/nation agreement <nation> <type>`). Relations are
-bilateral and stored with the nation.
+- **Treaties** — offer a non-aggression pact, military alliance or peace. Player nations
+  ratify in **Proposals**. NPC envoys can sign immediately.
+- **Sell resources** — offer iron, gold, diamonds or netherite from your linked reserve chest
+  for a total price in whole coins. On acceptance the server rechecks both chests,
+  available stock, space and funds, then delivers the goods and pays the seller.
+- **Send troops** — open the tactical map on the chosen ally, select a garrison, troop
+  branch and quantity, and confirm the timed shipment.
+- **Messages** — exchange private dispatches, or send a circular to all player-run allies.
+  Offers and correspondence remain available when the owner next logs in.
 
-**War has real effects** on disputes:
+The chat commands `/nation pact|alliance|peace "Country"` propose treaties between
+players. Issuing the matching command in return ratifies the proposal. Declaring war
+remains unilateral.
+A successful hostile order declares war. Both nations receive the battle result.
+Use `/nation disputes` to inspect engagements and `/nation peace <nation>` to
+propose an end to the war.
 
-| Situation | Defense window | Cooldown per attacker |
-|---|---|---|
-| Neutrality or broken pact | `disputeWindowMinutes` (10 min) | `disputeCooldownMinutes` (30 min) |
-| War | `warDisputeWindowMinutes` (5 min) | none (`warIgnoresDisputeCooldown`) |
+#### Sending allied reinforcements
 
-`/nation attack <x> <z>` is the invasion shortcut: it declares war (if needed) and opens
-the dispute over that chunk. `/nation info` and `/nation list` show the relations and who
-is at war with whom. The end-to-end check is `tools/diplomacy_check.sh`.
+Form an alliance with `/nation alliance "Country Name"` (Spanish: `/nacion alianza "Nombre del País"`).
+In **U → Send**, choose a deployed garrison of your own, an allied destination, a branch or **Mixed**, and a quantity.
+The preview shows the journey time. Each horizontal or vertical chunk edge takes **10 minutes** of server game time.
+For example, traveling three chunks east and two south takes **50 minutes**. A six-chunk journey takes one hour.
+Each new return trip uses the same pace. A leg already in transit when the server updates keeps its scheduled arrival.
+
+Troops leave the origin at dispatch and become the ally's troops upon arrival. Both countries can open **In transit**
+to see the remaining time, route and troop mix, even after reconnecting or restarting the server.
+If the destination changes owner, the alliance ends, or the garrison fills up, delivery is checked on arrival and the
+shipment travels back. Returning troops use their original garrison and then the sender's reserve if needed.
+
+Vanilla clients can use `/nation tactics send <fromX> <fromZ> <toX> <toZ> <quantity> [ground|air|naval]`
+and `/nation tactics shipments [page]`. The Spanish equivalents are `/nacion tactica enviar` and `/nacion tactica envios`.
 
 ### Economy (Phase 6)
 
 Every nation has its **own currency** (the mod treasury, with 2 decimals; vanilla gold is
-not involved). The cycle is daily: when the game day closes (24000 ticks) the upkeep is
-charged, the income comes in and the defense is paid.
+not involved). Every 24000 ticks, chunks earn income, garrisons supply reinforcements
+and treasuries pay interest. Each investment level costs coins once, at purchase.
 
 | Concept | Rule |
 |---|---|
 | **Income** | every claimed chunk generates `claimDailyIncome` per day -> **more territory, more coins** |
-| **Upkeep** | `claimDailyUpkeep` per chunk plus the upkeep of the investments |
-| **Defense** | `defenseBaseCost` + `defensePerChunkCost` x chunks + `defenseScaleCost` x chunks^2/100 -> **a big territory costs much more to defend** (the growth is more than linear) |
-| **Non-payment** | if the upkeep cannot be paid, the nation **loses the chunks farthest from its capital**; if the defense cannot be paid, it is left **UNPROTECTED** |
-| **Unprotected** | an unprotected nation **cannot defend its disputes** and its garrison does not act, until it pays (`/nation defense pay`) |
-| **Attack** | opening a dispute costs `attackCost` (a deposit, never refunded); at war it costs half (`warAttackDiscountPercent`) |
+| **Armies** | each purchased piece costs `armyPrice` and can be deployed from the tactical board |
 
 **What you invest in** (three investments, three levels each):
 
 | Investment | Effect | Purchase cost |
 |---|---|---|
 | **Farms** | +25% income per chunk and per level | `farmCost` |
-| **Garrison** | one point per level: it defends disputes **without any player connected** (the points are refilled when the defense is paid) | `garrisonCost` |
+| **Garrison** | adds one ground troop per level to the national reserve each game day | `garrisonCost` |
 | **Treasury** | +1% daily interest on the balance per level | `treasuryCost` |
 
 Commands: `/nation economy` (state), `/nation economy invest
-<farm|garrison|treasury>`, `/nation defense` and `/nation defense pay`. For the
+<farm|garrison|treasury>`. For the
 server administrator: `/nation admin economy tick` (forces the day close) and
 `/nation admin economy balance <nation> <coins>`. End-to-end check:
 `tools/economy_check.sh`.
@@ -405,8 +550,7 @@ The full design (domain, persistence, disputes, own map and minimap integration)
 Summary of what was decided there:
 
 - Every player founds a **nation** (name, RGB colour, capital, members with roles).
-- Nations **claim chunks** (granularity: 1 chunk) and can **dispute** them (10 minute
-  defense window; if nobody defends, the chunk changes owner).
+- Nations **claim chunks** (granularity: 1 chunk) and can **dispute** them (deployed armies defend each chunk and dice determine ownership).
 - The territory of a nation is always **contiguous**: a chunk can only be claimed
   next to the land already owned, so a nation is a shape and not a scatter of squares.
 - **Three map layers**: a political map (`/nation map`) that paints the real

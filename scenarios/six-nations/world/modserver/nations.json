@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "nations": [
+    {
+      "id": "70b8a5df-3611-54e3-9acb-bc1942e9fb12",
+      "name": "Liga Austral",
+      "owner": "380df991-f603-344c-a090-369bad2a924a",
+      "color": 2074006,
+      "createdAt": 0,
+      "preamble": "La sierra y la llanura sostienen una liga de provincias libres.",
+      "doctrines": "Defensa territorial y logística de montaña.",
+      "treasuryChest": -194613556133799,
+      "treasuryDimension": "minecraft:overworld",
+      "capital": {
+        "dimension": "minecraft:overworld",
+        "x": -45,
+        "z": 30
+      },
+      "members": {
+        "380df991-f603-344c-a090-369bad2a924a": "OWNER"
+      },
+      "economy": {
+        "balance": 940000000,
+        "garrisonPoints": 25500,
+        "troops": {
+          "ground": 14000,
+          "air": 6400,
+          "naval": 5100
+        },
+        "farmLevel": 3,
+        "garrisonLevel": 3,
+        "treasuryLevel": 3,
+        "lastDay": 0
+      },
+      "relations": {
+        "4c4025d3-ccaa-58aa-92ae-99fe9b3e60a6": "WAR",
+        "7b193475-7bc3-5745-9b69-bc7f52a746de": "ALLY"
+      },
+      "transfers": []
+    },
+    {
+      "id": "4c4025d3-ccaa-58aa-92ae-99fe9b3e60a6",
+      "name": "Federación Boreal",
+      "owner": "c0bf5a74-2136-57e8-8c8b-0bad4137de56",
+      "color": 13062983,
+      "createdAt": 0,
+      "preamble": "Los puertos de los lagos comparten sus rutas y reservas.",
+      "doctrines": "Proyección terrestre y aérea.",
+      "treasuryChest": -273503520276394,
+      "treasuryDimension": "minecraft:overworld",
+      "capital": {
+        "dimension": "minecraft:overworld",
+        "x": -63,
+        "z": -44
+      },
+      "members": {
+        "c0bf5a74-2136-57e8-8c8b-0bad4137de56": "OWNER"
+      },
+      "economy": {
+        "balance": 1120000000,
+        "garrisonPoints": 28780,
+        "troops": {
+          "ground": 15670,
+          "air": 7120,
+          "naval": 5990
+        },
+        "farmLevel": 3,
+        "garrisonLevel": 3,
+        "treasuryLevel": 3,
+        "lastDay": 0
+      },
+      "relations": {
+        "70b8a5df-3611-54e3-9acb-bc1942e9fb12": "WAR",
+        "0d4adc08-d13c-5832-b713-103f329098fd": "ALLY"
+      },
+      "envoy": true,
+      "transfers": []
+    },
+    {
+      "id": "0d4adc08-d13c-5832-b713-103f329098fd",
+      "name": "Concordia Europea",
+      "owner": "6af42860-283e-5566-9339-03c75509aefe",
+      "color": 7365802,
+      "createdAt": 0,
+      "preamble": "Las ciudades del continente defienden sus pasos comerciales.",
+      "doctrines": "Defensa colectiva y comercio continental.",
+      "treasuryChest": 47553874509914,
+      "treasuryDimension": "minecraft:overworld",
+      "capital": {
+        "dimension": "minecraft:overworld",
+        "x": 10,
+        "z": -52
+      },
+      "members": {
+        "6af42860-283e-5566-9339-03c75509aefe": "OWNER"
+      },
+      "economy": {
+        "balance": 860000000,
+        "garrisonPoints": 32060,
+        "troops": {
+          "ground": 17340,
+          "air": 7840,
+          "naval": 6880
+        },
+        "farmLevel": 3,
+        "garrisonLevel": 3,
+        "treasuryLevel": 3,
+        "lastDay": 0
+      },
+      "relations": {
+        "4c4025d3-ccaa-58aa-92ae-99fe9b3e60a6": "ALLY",
+        "7b193475-7bc3-5745-9b69-bc7f52a746de": "PACT"
+      },
+      "envoy": true,
+      "transfers": []
+    },
+    {
+      "id": "7b193475-7bc3-5745-9b69-bc7f52a746de",
+      "name": "Unión del Sahel",
+      "owner": "4c3c3353-1e04-51bf-8060-e82f72428a76",
+      "color": 13604662,
+      "createdAt": 0,
+      "preamble": "Las rutas del interior unen a las repúblicas del Sahel.",
+      "doctrines": "Reservas móviles y protección de rutas.",
+      "treasuryChest": 25563644575837,
+      "treasuryDimension": "minecraft:overworld",
+      "capital": {
+        "dimension": "minecraft:overworld",
+        "x": 5,
+        "z": -12
+      },
+      "members": {
+        "4c3c3353-1e04-51bf-8060-e82f72428a76": "OWNER"
+      },
+      "economy": {
+        "balance": 790000000,
+        "garrisonPoints": 35340,
+        "troops": {
+          "ground": 19010,
+          "air": 8560,
+          "naval": 7770
+        },
+        "farmLevel": 3,
+        "garrisonLevel": 3,
+        "treasuryLevel": 3,
+        "lastDay": 0
+      },
+      "relations": {
+        "70b8a5df-3611-54e3-9acb-bc1942e9fb12": "ALLY",
+        "0d4adc08-d13c-5832-b713-103f329098fd": "PACT"
+      },
+      "envoy": true,
+      "transfers": []
+    },
+    {
+      "id": "050aa9d5-60c8-5f89-8d75-d21583f56ff8",
+      "name": "Coalición de Jade",
+      "owner": "3fffef08-4755-5721-9a6d-4476ca9c43ef",
+      "color": 5738572,
+      "createdAt": 0,
+      "preamble": "Los valles del este mantienen una reserva estratégica común.",
+      "doctrines": "Industria, reservas y aviación.",
+      "treasuryChest": 333426898911335,
+      "treasuryDimension": "minecraft:overworld",
+      "capital": {
+        "dimension": "minecraft:overworld",
+        "x": 75,
+        "z": -34
+      },
+      "members": {
+        "3fffef08-4755-5721-9a6d-4476ca9c43ef": "OWNER"
+      },
+      "economy": {
+        "balance": 1220000000,
+        "garrisonPoints": 38620,
+        "troops": {
+          "ground": 20680,
+          "air": 9280,
+          "naval": 8660
+        },
+        "farmLevel": 3,
+        "garrisonLevel": 3,
+        "treasuryLevel": 3,
+        "lastDay": 0
+      },
+      "relations": {
+        "1ee7f1dd-4a5f-53db-b9b2-b5bd3a334b44": "PACT"
+      },
+      "envoy": true,
+      "transfers": []
+    },
+    {
+      "id": "1ee7f1dd-4a5f-53db-b9b2-b5bd3a334b44",
+      "name": "Pacto del Coral",
+      "owner": "2f8c6486-608f-5831-952f-ce58f2084d35",
+      "color": 4687048,
+      "createdAt": 0,
+      "preamble": "Puertos e islas unen sus flotas bajo un pacto de ayuda mutua.",
+      "doctrines": "Defensa naval y control de pasos marítimos.",
+      "treasuryChest": 465093420269661,
+      "treasuryDimension": "minecraft:overworld",
+      "capital": {
+        "dimension": "minecraft:overworld",
+        "x": 105,
+        "z": 26
+      },
+      "members": {
+        "2f8c6486-608f-5831-952f-ce58f2084d35": "OWNER"
+      },
+      "economy": {
+        "balance": 720000000,
+        "garrisonPoints": 41900,
+        "troops": {
+          "ground": 22350,
+          "air": 10000,
+          "naval": 9550
+        },
+        "farmLevel": 3,
+        "garrisonLevel": 3,
+        "treasuryLevel": 3,
+        "lastDay": 0
+      },
+      "relations": {
+        "050aa9d5-60c8-5f89-8d75-d21583f56ff8": "PACT"
+      },
+      "envoy": true,
+      "transfers": []
+    }
+  ]
+}

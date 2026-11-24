@@ -6,7 +6,7 @@ public enum Investment {
     /** Farms: increase the passive income per chunk (+25% per level). */
     FARM("farm", "Farms"),
 
-    /** Garrison: defends disputes without any player being connected. */
+    /** Garrison: supplies ground troops to the national reserve each day. */
     GARRISON("garrison", "Garrison"),
 
     /** Treasury: daily interest over the treasury balance. */

@@ -3,15 +3,9 @@
 #
 #   tools/economy_check.sh
 #
-# Flow:
-#   1. clean world + development server
-#   2. bot Alfa  -> founds the nation, claims a chunk and sees its economy
-#   3. bot Beta  -> founds the nation, disputes the chunk (pays the attack deposit)
-#   4. RCON      -> Beta's balance went down (the attack costs coins)
-#   5. RCON      -> the admin empties Alfa's treasury and closes the economic day
-#   6. bot Alfa  -> can no longer defend: the nation is UNPROTECTED
-#   7. RCON      -> Alfa has balance again and pays for the defence
-#
+# Two nations buy troops. Alfa deploys one, closes the day with an empty
+# treasury, then checks its income and the defending force.
+
 # Exit code 0 = everything OK.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
@@ -64,64 +58,51 @@ echo "    chunk claimed by Alfa: $CX, $CZ"
 cat > "$WORK/beta.json" <<JSON
 [
   { "command": "/nation create Beta", "expect": ["Nation Beta created"], "timeout": 20000 },
-  { "command": "/nation economy", "expect": ["Balance: 100.00 coins", "PROTECTED"], "timeout": 20000 },
-  { "command": "/nation dispute $CX $CZ", "expect": ["Dispute #1 opened"], "timeout": 20000 },
+  { "command": "/nation economy", "expect": ["Balance: 100.00 coins"], "timeout": 20000 },
+  { "command": "/nation tactics buy 5", "expect": ["Bought 5 reserve armies"], "timeout": 20000 },
   { "command": "/nation economy", "expect": ["Balance: 50.00 coins"], "timeout": 20000 }
 ]
 JSON
 
-cat > "$WORK/alfa-defend.json" <<JSON
+cat > "$WORK/alfa-deploy.json" <<JSON
 [
-  { "command": "/nation economy", "expect": ["PROTECTED"], "timeout": 20000 },
-  { "command": "/nation defend $CX $CZ", "expect": ["defended"], "timeout": 20000 }
+  { "command": "/nation tactics buy 1", "expect": ["Bought 1 reserve armies"], "timeout": 20000 },
+  { "command": "/nation tactics deploy $CX $CZ 1", "expect": ["Deployed 1 armies"], "timeout": 20000 }
 ]
 JSON
 
-cat > "$WORK/alfa-unprotected.json" <<JSON
+cat > "$WORK/alfa-after-close.json" <<JSON
 [
-  { "command": "/nation defend $CX $CZ", "expect": ["UNPROTECTED"], "timeout": 20000 },
-  { "command": "/nation economy", "expect": ["UNPROTECTED"], "timeout": 20000 }
+  { "command": "/nation economy", "expect": ["Balance: 12.00 coins"], "timeout": 20000 },
+  { "command": "/nation tactics $CX $CZ", "expect": ["2 armies"], "timeout": 20000 },
+  { "command": "/nation tactics buy 99", "expect": ["treasury cannot cover"], "timeout": 20000 }
 ]
 JSON
 
-cat > "$WORK/alfa-paid.json" <<JSON
-[
-  { "command": "/nation defense pay", "expect": ["You have paid the defense"], "timeout": 20000 },
-  { "command": "/nation economy", "expect": ["PROTECTED"], "timeout": 20000 }
-]
-JSON
-
-echo "==> [3/6] Bot Beta founds its nation and attacks (pays the deposit)"
+echo "==> [3/6] Bot Beta buys five armies"
 node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/beta.json" \
   --host "$MODSERVER_HOST" --port "$MODSERVER_PORT" --user BetaBot \
   2>&1 | tee "$WORK/beta.log"
 
-echo "==> [4/6] Alfa defends (the defence is already paid)"
-node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/alfa-defend.json" \
+echo "==> [4/6] Alfa buys and deploys a ground troop"
+node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/alfa-deploy.json" \
   --host "$MODSERVER_HOST" --port "$MODSERVER_PORT" --user AlfaBot \
-  2>&1 | tee "$WORK/alfa-defend.log"
+  2>&1 | tee "$WORK/alfa-deploy.log"
 
-echo "==> [5/6] The admin leaves Alfa without treasury and closes the economic day"
+echo "==> [5/6] The admin empties Alfa's treasury and closes the economic day"
 BALANCE="$("$MODSERVER_ROOT/tools/console.sh" "nation admin economy balance Alfa 0" || true)"
 echo "$BALANCE" | sed 's/^/    | /'
-check "the admin empties Alfa's treasury" "0.00 coins" "$BALANCE"
+check "Alfa starts the day with an empty treasury" "0.00 coins" "$BALANCE"
 
 TICK="$("$MODSERVER_ROOT/tools/console.sh" "nation admin economy tick" || true)"
 echo "$TICK" | sed 's/^/    | /'
 check "the economic day is closed" "Economic day closed" "$TICK"
-check "Alfa ends up unprotected" "UNPROTECTED" "$TICK"
+check "Alfa receives the full income of one chunk" "Economic day of Alfa: +12.00 in income" "$TICK"
 
-echo "==> [6/6] Alfa can no longer defend until it pays"
-node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/alfa-unprotected.json" \
+echo "==> [6/6] Alfa keeps its income and both deployed troops"
+node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/alfa-after-close.json" \
   --host "$MODSERVER_HOST" --port "$MODSERVER_PORT" --user AlfaBot \
-  2>&1 | tee "$WORK/alfa-unprotected.log"
-
-"$MODSERVER_ROOT/tools/console.sh" "nation admin economy balance Alfa 500" >/dev/null 2>&1 || true
-node "$MODSERVER_ROOT/tools/bot/run.js" --scenario "$WORK/alfa-paid.json" \
-  --host "$MODSERVER_HOST" --port "$MODSERVER_PORT" --user AlfaBot \
-  2>&1 | tee "$WORK/alfa-paid.log"
-
-"$MODSERVER_ROOT/tools/server.sh" stop >/dev/null 2>&1 || true
+  2>&1 | tee "$WORK/alfa-after-close.log"
 
 if [ "$FAILURES" -ne 0 ]; then
   echo ""
@@ -130,4 +111,4 @@ if [ "$FAILURES" -ne 0 ]; then
 fi
 
 echo ""
-echo "ECONOMY OK: the currency is earned, it is spent on attacking and an unpaid defence leaves the nation unprotected."
+echo "ECONOMY OK: purchases, deployed troops and daily income verified."

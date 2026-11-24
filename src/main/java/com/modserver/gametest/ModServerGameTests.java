@@ -80,7 +80,9 @@ public class ModServerGameTests {
         NationManager manager = new NationManager();
         helper.assertFalse(NationManager.isValidName("ab"), "A 2 character name is invalid");
         helper.assertFalse(NationManager.isValidName(""), "An empty name is invalid");
-        helper.assertFalse(NationManager.isValidName("name with spaces"), "Spaces are not valid");
+        helper.assertTrue(NationManager.isValidName("República Democrática"), "Names can contain spaces and accents");
+        helper.assertFalse(NationManager.isValidName("    "), "A blank name is invalid");
+        helper.assertFalse(NationManager.isValidName("One  Nation"), "Empty words are invalid");
         helper.assertTrue(NationManager.isValidName("Nation_1"), "Nation_1 should be valid");
 
         manager.create(UUID.randomUUID(), "Nation_1", UUID.randomUUID(), 0xFFFFFF, 0L);

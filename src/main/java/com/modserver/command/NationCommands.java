@@ -53,13 +53,13 @@ public final class NationCommands {
         return Commands.literal(name)
                 .requires(source -> source.hasPermission(0))
                 .then(Commands.literal(english ? "create" : "crear")
-                        .then(Commands.argument("name", StringArgumentType.word())
-                                .executes(ctx -> create(ctx, StringArgumentType.getString(ctx, "name"),
-                                        0x55FFFF))
-                                .then(Commands.argument("color", IntegerArgumentType.integer())
-                                        .executes(ctx -> create(ctx,
-                                                StringArgumentType.getString(ctx, "name"),
-                                                IntegerArgumentType.getInteger(ctx, "color"))))))
+                        .then(Commands.argument("name", StringArgumentType.greedyString()).executes(NationCommands::create)))
+                .then(Commands.literal(english ? "reserve" : "reserva")
+                        .executes(com.modserver.government.Government::bindReserve))
+                .then(com.modserver.military.Tactics.commands(english ? "tactics" : "tactica"))
+                .then(com.modserver.council.Council.commands(english ? "council" : "consejo"))
+                .then(com.modserver.government.Government.commands())
+                .then(com.modserver.government.Government.oilCommands(english ? "oil" : "petroleo"))
                 .then(Commands.literal("claim").executes(NationCommands::claim))
                 .then(Commands.literal("unclaim").executes(NationCommands::unclaim))
                 .then(Commands.literal(english ? "map" : "mapa").executes(NationCommands::openMap)
@@ -79,23 +79,23 @@ public final class NationCommands {
                         .then(Commands.argument("color", IntegerArgumentType.integer(0, 0xFFFFFF))
                                 .executes(ctx -> setColor(ctx, IntegerArgumentType.getInteger(ctx, "color")))))
                 .then(Commands.literal(english ? "agreement" : "acuerdo")
-                        .then(Commands.argument("nation", StringArgumentType.word())
+                        .then(Commands.argument("nation", StringArgumentType.string())
                                 .then(Commands.argument("type", StringArgumentType.word())
                                         .executes(ctx -> agreement(ctx,
                                                 StringArgumentType.getString(ctx, "nation"),
                                                 StringArgumentType.getString(ctx, "type"))))))
                 .then(Commands.literal(english ? "dispute" : "disputar")
-                        .executes(ctx -> dispute(ctx, null, null))
+                        .executes(ctx -> military(ctx, null, null))
                         .then(Commands.argument("x", IntegerArgumentType.integer())
                                 .then(Commands.argument("z", IntegerArgumentType.integer())
-                                        .executes(ctx -> dispute(ctx,
+                                        .executes(ctx -> military(ctx,
                                                 IntegerArgumentType.getInteger(ctx, "x"),
                                                 IntegerArgumentType.getInteger(ctx, "z"))))))
                 .then(Commands.literal(english ? "defend" : "defender")
-                        .executes(ctx -> defend(ctx, null, null))
+                        .executes(ctx -> military(ctx, null, null))
                         .then(Commands.argument("x", IntegerArgumentType.integer())
                                 .then(Commands.argument("z", IntegerArgumentType.integer())
-                                        .executes(ctx -> defend(ctx,
+                                        .executes(ctx -> military(ctx,
                                                 IntegerArgumentType.getInteger(ctx, "x"),
                                                 IntegerArgumentType.getInteger(ctx, "z"))))))
                 .then(Commands.literal(english ? "economy" : "economia")
@@ -104,31 +104,28 @@ public final class NationCommands {
                                 .then(Commands.argument("type", StringArgumentType.word())
                                         .executes(ctx -> invest(ctx,
                                                 StringArgumentType.getString(ctx, "type"))))))
-                .then(Commands.literal(english ? "defense" : "defensa")
-                        .executes(NationCommands::defense)
-                        .then(Commands.literal(english ? "pay" : "pagar").executes(NationCommands::payDefense)))
                 .then(Commands.literal(english ? "disputes" : "disputas").executes(NationCommands::disputes))
                 .then(Commands.literal(english ? "war" : "guerra")
-                        .then(Commands.argument("nation", StringArgumentType.word())
+                        .then(Commands.argument("nation", StringArgumentType.string())
                                 .executes(ctx -> agreement(ctx, StringArgumentType.getString(ctx, "nation"),
                                         "war"))))
                 .then(Commands.literal(english ? "peace" : "paz")
-                        .then(Commands.argument("nation", StringArgumentType.word())
+                        .then(Commands.argument("nation", StringArgumentType.string())
                                 .executes(ctx -> agreement(ctx, StringArgumentType.getString(ctx, "nation"),
                                         "neutral"))))
                 .then(Commands.literal(english ? "alliance" : "alianza")
-                        .then(Commands.argument("nation", StringArgumentType.word())
+                        .then(Commands.argument("nation", StringArgumentType.string())
                                 .executes(ctx -> agreement(ctx, StringArgumentType.getString(ctx, "nation"),
                                         "ally"))))
                 .then(Commands.literal(english ? "pact" : "pacto")
-                        .then(Commands.argument("nation", StringArgumentType.word())
+                        .then(Commands.argument("nation", StringArgumentType.string())
                                 .executes(ctx -> agreement(ctx, StringArgumentType.getString(ctx, "nation"),
                                         "pact"))))
                 .then(Commands.literal(english ? "attack" : "atacar")
-                        .executes(ctx -> attack(ctx, null, null))
+                        .executes(ctx -> military(ctx, null, null))
                         .then(Commands.argument("x", IntegerArgumentType.integer())
                                 .then(Commands.argument("z", IntegerArgumentType.integer())
-                                        .executes(ctx -> attack(ctx,
+                                        .executes(ctx -> military(ctx,
                                                 IntegerArgumentType.getInteger(ctx, "x"),
                                                 IntegerArgumentType.getInteger(ctx, "z"))))))
                 .then(RivalNpc.interactionCommands(english))
@@ -158,7 +155,7 @@ public final class NationCommands {
         var tick = Commands.literal("tick");
         tick.executes(NationCommands::adminEconomyTick);
         var balance = Commands.literal("balance");
-        var nation = Commands.argument("nation", StringArgumentType.word());
+        var nation = Commands.argument("nation", StringArgumentType.string());
         var amount = Commands.argument("coins", DoubleArgumentType.doubleArg(0));
         amount.executes(ctx -> adminBalance(ctx,
                 StringArgumentType.getString(ctx, "nation"),
@@ -188,7 +185,27 @@ public final class NationCommands {
     }
 
     // ----------------------------------------------------------------- actions
-    private static int create(CommandContext<CommandSourceStack> ctx, String name, int color) {
+    private static int create(CommandContext<CommandSourceStack> ctx) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        String argument = StringArgumentType.getString(ctx, "name").strip();
+        String name = argument;
+        int color = 0x55FFFF;
+        var reader = new com.mojang.brigadier.StringReader(argument);
+        if (reader.canRead() && com.mojang.brigadier.StringReader.isQuotedStringStart(reader.peek())) {
+            name = reader.readQuotedString();
+            if (reader.canRead()) {
+                reader.expect(' ');
+                reader.skipWhitespace();
+                color = reader.readInt();
+                if (reader.canRead()) throw com.mojang.brigadier.exceptions.CommandSyntaxException.BUILT_IN_EXCEPTIONS.dispatcherUnknownArgument().createWithContext(reader);
+            }
+        } else {
+            int split = argument.lastIndexOf(' ');
+            if (split > 0 && argument.substring(split + 1).matches("-?[0-9]+")) {
+                reader.setCursor(split + 1);
+                color = reader.readInt();
+                name = argument.substring(0, split).stripTrailing();
+            }
+        }
         ServerPlayer player = ctx.getSource().getPlayer();
         if (player == null) {
             send(ctx, "Only a player can use this command", false);
@@ -418,27 +435,12 @@ public final class NationCommands {
     }
 
     // ---------------------------------------------------------------- disputes
-    private static int dispute(CommandContext<CommandSourceStack> ctx, Integer chunkX, Integer chunkZ) {
-        ServerPlayer player = ctx.getSource().getPlayer();
-        if (player == null) {
-            send(ctx, "Only a player can use this command", false);
-            return 0;
-        }
-        NationService.Result result = ModServer.nations().openDispute(player, chunkX, chunkZ);
-        send(ctx, result.message(), result.success());
-        return result.success() ? 1 : 0;
+    private static int military(CommandContext<CommandSourceStack> ctx, Integer x, Integer z)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        return com.modserver.military.Tactics.open(ctx.getSource().getPlayerOrException(), x, z);
     }
 
-    private static int defend(CommandContext<CommandSourceStack> ctx, Integer chunkX, Integer chunkZ) {
-        ServerPlayer player = ctx.getSource().getPlayer();
-        if (player == null) {
-            send(ctx, "Only a player can use this command", false);
-            return 0;
-        }
-        NationService.Result result = ModServer.nations().defendDispute(player, chunkX, chunkZ);
-        send(ctx, result.message(), result.success());
-        return result.success() ? 1 : 0;
-    }
+
 
     private static int disputes(CommandContext<CommandSourceStack> ctx) {
         var all = ModServer.nations().allDisputes();
@@ -454,7 +456,9 @@ public final class NationCommands {
                     .append(" chunk ").append(dispute.chunkX()).append(", ").append(dispute.chunkZ())
                     .append(" | ").append(retadora).append(" -> ").append(defensora)
                     .append(" | ").append(dispute.status());
-            if (dispute.status().isOpen()) {
+            if (dispute.assault() != null) {
+                line.append(" | ").append(dispute.assault().attackers()).append(" attackers in the field");
+            } else if (dispute.status().isOpen()) {
                 line.append(" | ").append(dispute.remainingSeconds(ctx.getSource().getServer().overworld().getGameTime()))
                         .append(" s left");
             }
@@ -485,16 +489,7 @@ public final class NationCommands {
     }
 
     // --------------------------------------------------------------- diplomacy
-    private static int attack(CommandContext<CommandSourceStack> ctx, Integer chunkX, Integer chunkZ) {
-        ServerPlayer player = ctx.getSource().getPlayer();
-        if (player == null) {
-            send(ctx, "Only a player can use this command", false);
-            return 0;
-        }
-        NationService.Result result = ModServer.nations().attack(player, chunkX, chunkZ);
-        send(ctx, result.message(), result.success());
-        return result.success() ? 1 : 0;
-    }
+
 
     // ----------------------------------------------------------------- economy
     private static int economy(CommandContext<CommandSourceStack> ctx) {
@@ -514,22 +509,16 @@ public final class NationCommands {
         EconomyRules rules = ModServer.nations().economyRules();
 
         long income = rules.dailyIncome(chunks, eco);
-        long upkeep = rules.dailyUpkeep(chunks, eco);
-        long defense = rules.defenseCost(chunks);
 
         send(ctx, "Economy of " + owned.name() + ":", true);
         send(ctx, "- Balance: " + EconomyService.coins(eco.balance()) + " coins", true);
         send(ctx, "- Income: " + EconomyService.coins(income) + "/day ("
                 + chunks + " chunks)", true);
-        send(ctx, "- Upkeep: " + EconomyService.coins(upkeep) + "/day", true);
-        send(ctx, "- Defense: " + EconomyService.coins(defense) + "/day"
-                + (eco.defenseDebt() > 0 ? " + debt " + EconomyService.coins(eco.defenseDebt()) : ""), true);
-        send(ctx, "- Status: " + (eco.isDefended() ? "PROTECTED" : "UNPROTECTED")
-                + " | garrison: " + eco.garrisonPoints() + " points", true);
+        send(ctx, "- Reserve troops: " + eco.garrisonPoints(), true);
         send(ctx, "- Investments: farm " + eco.farmLevel() + " | garrison "
                 + eco.garrisonLevel() + " | treasury " + eco.treasuryLevel(), true);
-        send(ctx, "- Attacking costs " + EconomyService.coins(rules.attackCost(false))
-                + " (" + EconomyService.coins(rules.attackCost(true)) + " at war)", true);
+        send(ctx, "Army price: " + EconomyService.coins(com.modserver.military.ArmyCombat.price())
+                + " coins · /nation tactics", true);
         return 1;
     }
 
@@ -540,38 +529,6 @@ public final class NationCommands {
             return 0;
         }
         NationService.Result result = ModServer.nations().invest(player, type);
-        send(ctx, result.message(), result.success());
-        return result.success() ? 1 : 0;
-    }
-
-    private static int defense(CommandContext<CommandSourceStack> ctx) {
-        ServerPlayer player = ctx.getSource().getPlayer();
-        if (player == null) {
-            send(ctx, "Only a player can use this command", false);
-            return 0;
-        }
-        Optional<Nation> nation = ModServer.nations().nationOf(player.getUUID());
-        if (nation.isEmpty()) {
-            send(ctx, "You do not have a nation", false);
-            return 0;
-        }
-        Nation owned = nation.get();
-        long pending = ModServer.nations().economy().pendingDefenseCost(owned,
-                ModServer.nations().economyRules());
-        send(ctx, "Defense of " + owned.name() + ": " + pending
-                + " (" + EconomyService.coins(pending) + " coins) | status: "
-                + (owned.economy().isDefended() ? "PROTECTED" : "UNPROTECTED")
-                + ". Pay it with /nation defense pay", true);
-        return 1;
-    }
-
-    private static int payDefense(CommandContext<CommandSourceStack> ctx) {
-        ServerPlayer player = ctx.getSource().getPlayer();
-        if (player == null) {
-            send(ctx, "Only a player can use this command", false);
-            return 0;
-        }
-        NationService.Result result = ModServer.nations().payDefense(player);
         send(ctx, result.message(), result.success());
         return result.success() ? 1 : 0;
     }

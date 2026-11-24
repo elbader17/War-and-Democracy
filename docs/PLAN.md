@@ -127,7 +127,7 @@ Dispute
 |---|---|---|
 | Claim granularity | 1 chunk (16x16) | simple and granular; `/nation claim radius <n>` adds a 3x3/5x5 region in phase 3 |
 | Inheritance on death | **the nation survives**; if the owner dies and there are no officers, it passes to the oldest member; with no members → it is dissolved | avoids losing progress because of a silly death |
-| Claim expiration | **they do not expire** in v1 (upkeep configurable in phase 4) | disputes already create tension; expiration due to non-payment is a different thing |
+| Claim expiration | **Claims are permanent** | ownership changes through release or conquest |
 | Dimensions | key per dimension from the model; claim **only in the overworld** in v1 (configurable) | the model does not need to be migrated later |
 | Anti-grief | **no** in v1 | that is OPAC/Landlord territory; focus on tenancy + dispute |
 | Claim limit | per nation and per player (config, default 100 / 20) | avoids claim inflation |
@@ -240,7 +240,7 @@ Permissions (NeoForge permissions API): `modserver.nation.create`, `.claim`,
 | **3. Xaero** | `XaeroMapProvider` + packet sync | install Xaero in the dev runtime and see the markers in the screenshot | ✅ **Done** |
 | **4. Disputes** | opening, defense window, transfer, admin | 10 GameTests of the state machine + E2E with two bots | ✅ **Done** |
 | **5. Diplomacy** | war/alliance between nations, `/nation war`, attacks | E2E with two bots | ✅ **Done** |
-| **6. Economy** | daily upkeep, taxes, treasury | config + save test | ✅ **Done** |
+| **6. Economy** | daily income, investments, treasury | config + save test | ✅ **Done** |
 
 ### Status of Phase 1 (implemented)
 
@@ -334,29 +334,19 @@ it gameplay meaning:
 Currency **owned by the mod** (each nation's treasury; the game's gold plays no role),
 in cents so percentages are not truncated.
 
-- **Domain** (`com.modserver.economy`): `NationEconomy` (balance, defense debt,
-  protection state, garrison points, investment levels),
-  `EconomyRules` (the numbers from the configuration) and `EconomyService` (the daily
-  cycle, pure domain, with no Minecraft dependency).
-- **Daily cycle** (every 24000 game ticks): upkeep is charged (per chunk and per
-  investment), income comes in (per chunk, with the farm bonus), the defense is
-  charged and the treasury pays interest.
-- **More territory, more coins**: each chunk produces every day.
-- **More territory, more expensive to defend**: the defense cost is
-  `base + perChunk * chunks + scale * chunks^2 / 100`, with **quadratic** growth:
-  an empire becomes unsustainable before it becomes big.
-- **If it is not paid**: without upkeep, the nation loses the chunks farthest from its
-  capital until it can pay; without defense, it stays **UNPROTECTED** (accumulates debt) and
-  **cannot defend its disputes** nor use its garrison.
-- **Attack**: opening a dispute costs coins (deposit, not refunded), with a discount
-  during war. The same currency is used to defend and to attack.
-- **Investments** (chosen here, three, with three levels each): **farms** (income
-  x1.25 per level), **garrison** (defends disputes without a connected player; points
-  are refilled when paying the defense) and **treasury** (daily interest).
+- **Domain** (`com.modserver.economy`): `NationEconomy` holds the treasury, troop
+  reserve and investment levels. `EconomyRules` reads the configured rates and
+  `EconomyService` applies them at each daily close.
+- **Daily cycle** (every 24000 game ticks): each nation collects income from
+  all of its chunks, receives ground troops from
+  its garrison and earns treasury interest on a positive balance.
+- **Combat**: nations buy troops, deploy them to chunks and defend with those
+  deployed troops when attacked.
+- **Investments**: each farm level adds 25% to base income, each garrison level
+  supplies one ground troop per day, and each treasury level adds 1% daily interest.
 - **Persistence**: the economy lives inside `world/modserver/nations.json`.
-- **Verification**: 11 GameTests of the economic cycle (30/30 in total) and
-  `tools/economy_check.sh`, which checks with two bots that attacking deducts the
-  deposit and that a nation without treasury becomes unprotected and cannot defend.
+- **Verification**: GameTests cover the daily cycle and reinforcements.
+  `tools/economy_check.sh` checks purchases, deployment and a daily close with two bots.
 
 Two NeoForge constraints that shaped the design (see README section 8):
 
@@ -426,8 +416,7 @@ agreements between nations.
 1. Can claims be **transferred** to another nation (donation)? → *no in v1*.
 2. Does **sacking** (killing the owner inside their claim) transfer the chunk? → *proposed in v4*.
 3. Can the capital be **moved** with `/nation capital`? → *yes, in v2*.
-4. Will there be **taxes/upkeep**? → *v6*.
-5. Mod name shown in `mods.toml` (`displayName`)? → *today "ModServer"*.
+4. Mod name shown in `mods.toml` (`displayName`)? → *today "ModServer"*.
 
 **Technical risks**
 1. *Waypoints per claim can hurt minimap performance* if there are thousands.
