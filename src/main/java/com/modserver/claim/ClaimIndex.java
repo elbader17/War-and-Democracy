@@ -17,6 +17,12 @@ public final class ClaimIndex {
     private final Map<String, Map<Long, Claim>> byDimension = new HashMap<>();
     private final Map<UUID, Integer> countsByNation = new HashMap<>();
 
+    private java.util.function.Consumer<Claim> onLoss = claim -> {};
+
+    public void onOwnershipLost(java.util.function.Consumer<Claim> listener) {
+        onLoss = listener;
+    }
+
     /** Returns the claim of that chunk, or null if it is free. */
     public Claim claimAt(String dimension, int chunkX, int chunkZ) {
         Map<Long, Claim> dimensionClaims = byDimension.get(dimension);
@@ -51,6 +57,7 @@ public final class ClaimIndex {
         Claim released = dimensionClaims.remove(Claim.pack(chunkX, chunkZ));
         if (released != null) {
             decrementCount(released.nationId());
+            onLoss.accept(released);
         }
         return released;
     }
@@ -60,9 +67,11 @@ public final class ClaimIndex {
         if (claimAt(claim.dimension(), claim.chunkX(), claim.chunkZ()) != claim) {
             throw new IllegalArgumentException("The claim is not indexed");
         }
+        if (claim.nationId().equals(newOwner)) return;
         decrementCount(claim.nationId());
         claim.setNationId(newOwner);
         countsByNation.merge(newOwner, 1, Integer::sum);
+        onLoss.accept(claim);
     }
 
     private void decrementCount(UUID nation) {

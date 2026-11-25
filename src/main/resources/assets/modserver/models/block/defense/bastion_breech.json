@@ -1,0 +1,83 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "iron": "create:block/industrial_iron_block",
+    "brass": "create:block/brass_block",
+    "panel": "create:block/brass_casing",
+    "base": "create:block/andesite_casing",
+    "copper": "minecraft:block/cut_copper",
+    "wood": "minecraft:block/stripped_spruce_log",
+    "dark": "minecraft:block/polished_deepslate",
+    "glass": "minecraft:block/sea_lantern",
+    "white": "minecraft:block/quartz_block_top",
+    "red": "minecraft:block/red_terracotta",
+    "blue": "minecraft:block/oxidized_copper",
+    "particle": "create:block/andesite_casing"
+  },
+  "elements": [
+    {
+      "from": [
+        4.752,
+        10.144,
+        1.62
+      ],
+      "to": [
+        11.248,
+        13.972,
+        3.824
+      ],
+      "faces": {
+        "north": {
+          "texture": "#brass"
+        },
+        "south": {
+          "texture": "#brass"
+        },
+        "east": {
+          "texture": "#brass"
+        },
+        "west": {
+          "texture": "#brass"
+        },
+        "up": {
+          "texture": "#brass"
+        },
+        "down": {
+          "texture": "#brass"
+        }
+      }
+    },
+    {
+      "from": [
+        5.68,
+        10.84,
+        0.692
+      ],
+      "to": [
+        10.32,
+        13.16,
+        1.736
+      ],
+      "faces": {
+        "north": {
+          "texture": "#iron"
+        },
+        "south": {
+          "texture": "#iron"
+        },
+        "east": {
+          "texture": "#iron"
+        },
+        "west": {
+          "texture": "#iron"
+        },
+        "up": {
+          "texture": "#iron"
+        },
+        "down": {
+          "texture": "#iron"
+        }
+      }
+    }
+  ]
+}

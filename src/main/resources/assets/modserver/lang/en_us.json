@@ -538,5 +538,15 @@
   "council.shortStock": "Only %2$s × %1$s in your chest. Choose another resource or lower the quantity.",
   "council.salePreview": "If accepted, you deliver %1$s × %2$s and receive %3$s coins.",
   "council.oilUncharted": "Oil: no fields surveyed",
-  "council.unitsAvailable": "Units to sell (%s in stock)"
+  "council.unitsAvailable": "Units to sell (%s in stock)",
+  "block.modserver.watchtower": "Watchtower",
+  "block.modserver.bastion": "Bastion",
+  "block.modserver.skyguard": "Skyguard",
+  "block.modserver.aegis": "Aegis",
+  "item.modserver.brass_slug": "Brass Slug",
+  "item.modserver.skyrocket": "Skyrocket",
+  "item.modserver.interceptor": "Interceptor",
+  "item.modserver.flare_cartridge": "Flare Cartridge",
+  "item.modserver.survey_key": "Survey Key",
+  "entity.modserver.defense_round": "Defense projectile"
 }

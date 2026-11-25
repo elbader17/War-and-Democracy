@@ -1,0 +1,38 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "material": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "create:electron_tube"
+          }
+        ]
+      }
+    },
+    "unlocked": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "modserver:survey_key"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "material",
+      "unlocked"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "modserver:survey_key"
+    ]
+  }
+}

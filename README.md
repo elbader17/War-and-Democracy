@@ -1,13 +1,15 @@
 # War & Democracy
 
+The [territorial defense workshop](docs/TERRITORIAL-DEFENSE.md) covers V2 machines, power, ammunition, radar and command.
+
 The [Six Nations Earth scenario](scenarios/six-nations/README.md) ships with the V1 campaign.
 
 ## Getting started
 
 Use Java 21 and NeoForge **21.1.266** on a Minecraft Java **1.21.1** server. Run
 `tools/build.sh` with `JAVA_HOME` pointing to JDK 21, copy
-`build/libs/modserver-1.0.0.jar` into the server's `mods/` directory, and start
-the server. Players can join with vanilla Minecraft Java 1.21.1.
+`build/libs/modserver-2.0.0-beta.1.jar` into the server's `mods/` directory, and start
+the server. The base campaign supports vanilla Minecraft Java 1.21.1 players. For the physical defense workshop, install the same NeoForge, War & Democracy, Create and defense add-on versions on the server and each client.
 
 1. Run `/nation create Aurora` in the Overworld to found a nation at your current
    location. Each nation has one owner, and each player can found one nation.

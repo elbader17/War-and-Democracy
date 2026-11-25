@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "modserver:watchtower",
+      "required": false
+    },
+    {
+      "id": "modserver:bastion",
+      "required": false
+    },
+    {
+      "id": "modserver:skyguard",
+      "required": false
+    },
+    {
+      "id": "modserver:aegis",
+      "required": false
+    }
+  ]
+}

@@ -375,6 +375,10 @@ public final class TacticalScreen extends Screen {
         }
     }
 
+    private boolean defenseAvailable() {
+        return minecraft.getConnection() != null && minecraft.getConnection().hasChannel(com.modserver.defense.DefenseDesk.Request.TYPE.id());
+    }
+
     @Override protected void init() {
         numbers = NumberFormat.getIntegerInstance(minecraft.getLanguageManager().getJavaLocale());
         hoverChunk = Long.MIN_VALUE;
@@ -388,6 +392,7 @@ public final class TacticalScreen extends Screen {
         pickers.clear();
         submit = null;
 
+        if (defenseAvailable()) button(width - 74, 3, 69, 17, Component.literal("Defense"), com.modserver.client.DefenseScreen::open);
         tabRow(HEADER + 4, Action.BUY, Action.DEPLOY, Action.MOVE, Action.ATTACK);
         tabRow(HEADER + 24, Action.BUILD, Action.LAUNCH, Action.SEND, Action.NUCLEAR);
         if (tracking) {
@@ -935,8 +940,8 @@ public final class TacticalScreen extends Screen {
         g.renderItem(Items.FILLED_MAP.getDefaultInstance(), 6, 3);
         g.drawString(font, getTitle(), 26, 8, GOLD, false);
         Component wallet = tr("wallet", coins(board.balance()), numbers.format(board.reserve()));
-        int walletX = Math.max(font.width(getTitle()) + 32, width - font.width(wallet) - 8);
-        label(g, wallet, walletX, 8, width - walletX - 6, WHITE);
+        int walletX = Math.max(font.width(getTitle()) + 32, width - (defenseAvailable() ? 82 : 8) - font.width(wallet));
+        label(g, wallet, walletX, 8, width - walletX - (defenseAvailable() ? 79 : 6), WHITE);
 
         int bottom = height - FOOTER;
         g.fill(0, bottom, width, bottom + 1, 0xFF78694D);

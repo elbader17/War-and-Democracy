@@ -208,10 +208,49 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 // a dependency that will be present for runtime testing but that is
 // "optional", meaning it will not be pulled by dependents of this mod.
 configurations {
+    journeyMapClient
+    defenseApiBundles
     runtimeClasspath.extendsFrom localRuntime
 }
 
+// JourneyMap belongs on the client, as in the packaged Six Nations server.
+neoForge.runs.configureEach {
+    if (name.startsWith('client')) additionalRuntimeClasspathConfiguration.extendsFrom(configurations.journeyMapClient)
+}
+
+// Create and Sable distribute their public helper APIs as nested jars.
+def defenseApiDir = layout.buildDirectory.dir('defense-api')
+def defenseArchives = services.get(ArchiveOperations)
+def unpackDefenseApi = tasks.register('unpackDefenseApi', Sync) {
+    from(configurations.defenseApiBundles.elements.map { jars ->
+        jars.collect { entry -> defenseArchives.zipTree(entry.asFile) }
+    }) {
+        include 'META-INF/jarjar/Registrate-*.jar', 'META-INF/jarjar/ponder-*.jar',
+                'META-INF/jarjar/flywheel-*.jar', 'META-INF/jarjar/sable-companion-*.jar'
+        eachFile { path = name }
+        includeEmptyDirs = false
+    }
+    into defenseApiDir
+}
+
 dependencies {
+    def defenseMods = [
+        'maven.modrinth:create:UjX6dr61',
+        'maven.modrinth:create-aeronautics:demX2roU',
+        'maven.modrinth:sable:fg9dTRz9',
+        'maven.modrinth:create-radars:ayKJWhGv',
+        'maven.modrinth:create-big-cannons:bOiDu0LS',
+        'maven.modrinth:rpl:hZ6B2Z0x'
+    ]
+    ['maven.modrinth:create:UjX6dr61', 'maven.modrinth:sable:fg9dTRz9'].each {
+        defenseApiBundles(it) { transitive = false }
+    }
+    compileOnly('maven.modrinth:create-radars:ayKJWhGv') { transitive = false }
+    compileOnly files(fileTree(defenseApiDir) { include '*.jar' }).builtBy(unpackDefenseApi)
+    if (providers.gradleProperty('territoryDefense').orNull == 'true') {
+        defenseMods.each { coordinate -> localRuntime(coordinate) { transitive = false } }
+    }
+
     // The oil industry is optional at runtime. Enable it in development with -Ppetroleum.
     def petroleumMods = ['maven.modrinth:create:UjX6dr61', 'maven.modrinth:create-diesel-generators:yzsE99E2']
     petroleumMods.each { coordinate ->
@@ -227,7 +266,7 @@ dependencies {
     // JourneyMap supplies the demo's minimap and territorial overlays.
     // compileOnly to compile against it, localRuntime to test it on the dev client.
     compileOnly "maven.modrinth:journeymap:${journeymap_version}"
-    localRuntime "maven.modrinth:journeymap:${journeymap_version}"
+    journeyMapClient "maven.modrinth:journeymap:${journeymap_version}"
 
     // The public API of JourneyMap (v2.0.0) is shipped inside the mod jar as a
     // JarJar dependency, so it is vendored in libs/ to compile against it

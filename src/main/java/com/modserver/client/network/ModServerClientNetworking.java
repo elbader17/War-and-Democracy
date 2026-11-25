@@ -37,6 +37,10 @@ public final class ModServerClientNetworking {
         com.modserver.client.ReserveChestRenderer.show(view);
     }
 
+    public static void defense(com.modserver.defense.DefenseDesk.View view) {
+        com.modserver.client.DefenseScreen.accept(view);
+    }
+
     public static void tactics(com.modserver.network.TacticalBoard board) {
         com.modserver.client.map.TacticalScreen.accept(board);
     }

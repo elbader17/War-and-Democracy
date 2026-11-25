@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "modserver:block/aegis"
+    }
+  }
+}

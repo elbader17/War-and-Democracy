@@ -1,0 +1,33 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " T ",
+    "CFC",
+    " P "
+  ],
+  "key": {
+    "T": {
+      "item": "create:electron_tube"
+    },
+    "C": {
+      "item": "create:copper_sheet"
+    },
+    "F": {
+      "item": "minecraft:firework_rocket"
+    },
+    "P": {
+      "item": "create:propeller"
+    }
+  },
+  "result": {
+    "id": "modserver:skyrocket",
+    "count": 2
+  }
+}

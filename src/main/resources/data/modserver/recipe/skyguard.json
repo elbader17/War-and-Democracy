@@ -1,0 +1,36 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "TPT",
+    "ICI",
+    " S "
+  ],
+  "key": {
+    "T": {
+      "item": "create:fluid_pipe"
+    },
+    "P": {
+      "item": "create:precision_mechanism"
+    },
+    "I": {
+      "item": "create:sturdy_sheet"
+    },
+    "C": {
+      "item": "create:brass_casing"
+    },
+    "S": {
+      "item": "create:shaft"
+    }
+  },
+  "result": {
+    "id": "modserver:skyguard",
+    "count": 1
+  }
+}

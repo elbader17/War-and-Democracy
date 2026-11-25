@@ -30,7 +30,7 @@ PROPS
 
 echo "Running GameTest (log: $LOG)"
 set +e
-timeout "${MODSERVER_GAMETEST_TIMEOUT:-600}" ./gradlew runGameTestServer --console=plain > "$LOG" 2>&1
+timeout "${MODSERVER_GAMETEST_TIMEOUT:-600}" ./gradlew runGameTestServer --console=plain "$@" > "$LOG" 2>&1
 CODE=$?
 set -e
 

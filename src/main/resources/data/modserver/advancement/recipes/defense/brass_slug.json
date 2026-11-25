@@ -1,0 +1,38 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "material": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "create:brass_ingot"
+          }
+        ]
+      }
+    },
+    "unlocked": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "modserver:brass_slug"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "material",
+      "unlocked"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "modserver:brass_slug"
+    ]
+  }
+}

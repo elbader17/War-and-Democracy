@@ -80,6 +80,10 @@ public class ModServer {
     }
 
     public ModServer(IEventBus modBus, ModContainer modContainer) {
+        if (net.neoforged.fml.ModList.get().isLoaded("create")) {
+            com.modserver.defense.DefenseHardware.install(modBus);
+            if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient()) com.modserver.client.DefenseRenderer.install(modBus);
+        }
         ModServerBlocks.BLOCKS.register(modBus);
         ModServerItems.ITEMS.register(modBus);
         ModServerItems.TABS.register(modBus);
@@ -138,6 +142,9 @@ public class ModServer {
         MinecraftServer server = event.getServer();
         nations = new NationService();
         nations.setServer(server);
+        if (net.neoforged.fml.ModList.get().isLoaded("create")) {
+            nations.claims().onOwnershipLost(claim -> com.modserver.defense.DefenseRegister.of(server.overworld()).landChanged(claim));
+        }
         try {
             nations.load(server.getWorldPath(LevelResource.ROOT).toAbsolutePath());
             ModServerCommands.LOGGER.info("Nations loaded from {} ({} nations, {} claims, {} disputes)",

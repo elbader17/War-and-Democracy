@@ -1,6 +1,7 @@
 package com.modserver.network;
 
 import com.modserver.ModServer;
+import com.modserver.defense.DefenseDesk;
 import com.modserver.client.network.ModServerClientNetworking;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.api.distmarker.Dist;
@@ -40,6 +41,10 @@ public final class ModServerNetworking {
         // which speaks the vanilla protocol). NeoForge aborts the negotiation if the
         // server requires a payload the client does not support.
         PayloadRegistrar registrar = event.registrar(PROTOCOL_VERSION).optional();
+        if (net.neoforged.fml.ModList.get().isLoaded("create")) {
+            registrar.playToServer(DefenseDesk.Request.TYPE, DefenseDesk.Request.CODEC, (order, ctx) -> DefenseDesk.handle((ServerPlayer)ctx.player(),order));
+            registrar.playToClient(DefenseDesk.View.TYPE, DefenseDesk.View.CODEC, (view, ctx) -> ModServerClientNetworking.defense(view));
+        }
         registrar.versioned("2").playToClient(MissileFlight.TYPE, MissileFlight.CODEC,
                 (flight, context) -> ModServerClientNetworking.missile(flight, false));
         registrar.playToClient(MissileFlight.Launch.TYPE, MissileFlight.Launch.CODEC,

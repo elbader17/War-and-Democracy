@@ -1,0 +1,32 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "create"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "PG",
+    "CS"
+  ],
+  "key": {
+    "P": {
+      "item": "minecraft:paper"
+    },
+    "G": {
+      "item": "minecraft:glowstone_dust"
+    },
+    "C": {
+      "item": "create:copper_sheet"
+    },
+    "S": {
+      "item": "minecraft:gunpowder"
+    }
+  },
+  "result": {
+    "id": "modserver:flare_cartridge",
+    "count": 6
+  }
+}
